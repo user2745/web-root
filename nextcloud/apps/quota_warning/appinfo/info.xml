@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<info>
+	<name>Quota warning</name>
+	<summary>This app sends notifications to users when they reached 85, 90 and 95% of their quota.</summary>
+	<description>This app sends notifications to users when they reached 85, 90 and 95% of their quota (checked once a day).
+In addition an email can be sent to the users. The three percentages can be changed in the admin settings.
+It is also possible to have a link in the email and the notification for upsell options.</description>
+	<licence>AGPL</licence>
+	<author>Joas Schilling</author>
+
+	<category>files</category>
+	<category>monitoring</category>
+
+	<screenshot>https://raw.githubusercontent.com/nextcloud/quota_warning/master/docs/notification.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/nextcloud/quota_warning/master/docs/email.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/nextcloud/quota_warning/master/docs/admin-settings.png</screenshot>
+
+	<website>https://github.com/nextcloud/quota_warning</website>
+	<bugs>https://github.com/nextcloud/quota_warning/issues</bugs>
+	<repository>https://github.com/nextcloud/quota_warning</repository>
+
+	<id>quota_warning</id>
+	<namespace>QuotaWarning</namespace>
+	<version>1.2.0</version>
+
+	<types>
+		<filesystem/>
+	</types>
+
+	<dependencies>
+		<nextcloud min-version="13" max-version="13" />
+	</dependencies>
+
+	<settings>
+		<admin>OCA\QuotaWarning\Settings</admin>
+	</settings>
+
+	<repair-steps>
+		<install>
+			<step>OCA\QuotaWarning\Migration\Install</step>
+		</install>
+	</repair-steps>
+</info>

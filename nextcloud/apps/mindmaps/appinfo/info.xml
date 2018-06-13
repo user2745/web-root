@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	  xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+	<id>mindmaps</id>
+	<name>Mindmaps</name>
+	<summary>This Nextcloud app allows you to create awesome mindmaps together with your colleagues.</summary>
+	<description>This Nextcloud app allows you to create awesome mindmaps together with your colleagues. You can easily share them with other users / groups and even circles on your local instance. A lot more cool features are planned for future versions. App icon by [Icons8](https://icons8.com) and mindmaps powered by [Vis.js](http://visjs.org/)
+
+* ✏️Create / edit / delete mindmaps
+* 💬 Add a description to your mindmap
+* 👥 Share with your team, friends or family
+* 🚀 Get your ideas organized
+	</description>
+	<version>0.1.0</version>
+	<licence>agpl</licence>
+	<author>Kai Schröer</author>
+	<namespace>Mindmaps</namespace>
+	<documentation>
+		<admin>https://github.com/splitt3r/mindmaps/blob/master/README.md</admin>
+	</documentation>
+	<category>office</category>
+	<category>organization</category>
+	<category>tools</category>
+	<website>https://github.com/splitt3r/mindmaps</website>
+	<bugs>https://github.com/splitt3r/mindmaps/issues</bugs>
+	<repository type="git">https://github.com/splitt3r/mindmaps.git</repository>
+	<screenshot>https://raw.githubusercontent.com/splitt3r/mindmaps/master/screenshots/mindmap_node_actions.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/splitt3r/mindmaps/master/screenshots/mindmaps_details.png</screenshot>
+	<screenshot>https://raw.githubusercontent.com/splitt3r/mindmaps/master/screenshots/mindmaps_sharing.png</screenshot>
+	<dependencies>
+		<php min-version="7.0"/>
+		<nextcloud min-version="13" max-version="14"/>
+	</dependencies>
+</info>
