@@ -1,0 +1,54 @@
+<div class="box">
+    <div class="box-header with-border">
+        <h3 class="box-title">{{ 'bills'|_ }}</h3>
+    </div>
+    <div class="box-body table-responsive no-padding">
+        <table class="table table-hover sortable">
+            <thead>
+            <tr>
+                <th data-defaultsign="az">{{ trans('form.name') }}</th>
+                <th data-defaultsign="_19" class="hidden-xs" style="text-align: right;">{{ trans('form.amount_min') }}</th>
+                <th data-defaultsign="_19" class="hidden-xs" style="text-align: right;">{{ trans('form.amount_max') }}</th>
+                <th data-defaultsign="_19" style="text-align: right;">{{ trans('form.amount') }}</th>
+                <th data-defaultsign="_19" class="hidden-xs" style="text-align: right;">{{ trans('form.under') }}</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for line in bills.getBills %}
+                <tr>
+                    <td data-value="{{ line.getBill.name }}">
+                        <a href="{{ route('bills.show',line.getBill.id) }}">{{ line.getBill.name }}</a>
+                        <small class="text-muted"><br/>
+                            {{ trans('firefly.bill_expected_between', {start: line.getPayDate.formatLocalized(monthAndDayFormat), end: line.getEndOfPayDate.formatLocalized(monthAndDayFormat) }) }}
+                        </small>
+                    </td>
+                    <td class="hidden-xs" data-value="{{ line.getMin }}" style="text-align: right;">{{ line.getMin|formatAmount }}</td>
+                    <td class="hidden-xs" data-value="{{ line.getMax }}" style="text-align: right;">{{ line.getMax|formatAmount }}</td>
+
+                    {# if bill is hit, show hit amount #}
+                    {% if line.isHit %}
+                        <td data-value="{{ line.getAmount }}" style="text-align: right;">
+                            <a href="{{ route('transactions.show', line.getTransactionJournalId) }}">
+                                {{ line.getAmount|formatAmount }}
+                            </a>
+                        </td>
+                    {% endif %}
+                    {# if not but is active, show "not yet charged #}
+                    {% if not line.isHit and line.isActive %}
+                        <td data-value="0" class="bg-success">{{ 'notCharged'|_ }}</td>
+                    {% endif %}
+                    {% if not line.isActive and not line.isHit %}
+                        <td data-value="-1">&nbsp;</td>
+                    {% endif %}
+                    <td data-value="{{ (line.getMax - line.getAmount) }}" style="text-align: right;" class="hidden-xs">
+                        {% if line.isHit %}
+                            {{ (line.getMax + line.getAmount)|formatAmount }}
+                        {% endif %}
+                    </td>
+                </tr>
+
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

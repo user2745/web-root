@@ -1,25 +1,44 @@
-<!DOCTYPE html>
+<!DOCTYPE HTML>
 <html>
-<head>
-<title>Welcome to nginx!</title>
-<style>
-    body {
-        width: 35em;
-        margin: 0 auto;
-        font-family: Tahoma, Verdana, Arial, sans-serif;
-    }
-</style>
-</head>
-<body>
-<h1>Welcome to nginx!</h1>
-<p>If you see this page, the nginx web server is successfully installed and
-working. Further configuration is required.</p>
+	<head>
+		<title>Bienvenue</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href=".metadata/.assets/css/main.css" />
+		<noscript><link rel="stylesheet" href=".metadata/.assets/css/noscript.css" /></noscript>
+	</head>
+	<body class="is-preload">
+		<div id="wrapper">
+			<div id="bg"></div>
+			<div id="overlay"></div>
+			<div id="main">
 
-<p>For online documentation and support please refer to
-<a href="http://nginx.org/">nginx.org</a>.<br/>
-Commercial support is available at
-<a href="http://nginx.com/">nginx.com</a>.</p>
+				<!-- Header -->
+					<header id="header">
+						<h1>Trésor</h1>
+						<p>Créer et Redéfinir</p>
+						<nav>
+							<ul>
+								<li><a href="/budget" class="icon fa-money-bill-wave"><span class="label">Budget</span></a></li>
+								<li><a href="#" class="icon fa-square"><span class="label">Budget</span></a></li>
+								<li><a href="/nextcloud" class="icon fa-cloud"><span class="label">Nextcloud</span></a></li>
+								<li><a href="https://github.com/user2745" class="icon fa-github"><span class="label">Github</span></a></li>
+								<li><a href="/boards" class="icon fa-square"><span class="label">Kanban</span></a></li>
+							</ul>
+						</nav>
+					</header>
 
-<p><em>Thank you for using nginx.</em></p>
-</body>
+				<!-- Footer -->
+					<footer id="footer">
+						<span class="copyright"><i>Créé par kamto</i></span>
+					</footer>
+
+			</div>
+		</div>
+		<script>
+			window.onload = function() { document.body.classList.remove('is-preload'); }
+			window.ontouchmove = function() { return false; }
+			window.onorientationchange = function() { document.body.scrollTop = 0; }
+		</script>
+	</body>
 </html>
