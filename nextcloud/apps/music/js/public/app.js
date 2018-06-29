@@ -29,6 +29,11 @@ angular.module('Music', ['restangular', 'duScroll', 'gettext', 'ngRoute', 'ang-d
 				templateUrl:'playlistview.html'
 			};
 
+			var allTracksControllerConfig = {
+				controller:'AllTracksViewController',
+				templateUrl:'alltracksview.html'
+			};
+
 			var settingsControllerConfig = {
 				controller:'SettingsViewController',
 				templateUrl:'settingsview.html'
@@ -46,7 +51,7 @@ angular.module('Music', ['restangular', 'duScroll', 'gettext', 'ngRoute', 'ang-d
 				.when('/track/:id',            overviewControllerConfig)
 				.when('/file/:id',             overviewControllerConfig)
 				.when('/playlist/:playlistId', playlistControllerConfig)
-				.when('/alltracks',            playlistControllerConfig)
+				.when('/alltracks',            allTracksControllerConfig)
 				.when('/settings',             settingsControllerConfig);
 		}
 	])
@@ -56,6 +61,98 @@ angular.module('Music', ['restangular', 'duScroll', 'gettext', 'ngRoute', 'ang-d
 			Restangular.setDefaultHeaders({requesttoken: Token});
 		}
 	]);
+
+angular.module('Music').controller('AllTracksViewController', [
+	'$rootScope', '$scope', 'playlistService', 'libraryService', '$timeout',
+	function ($rootScope, $scope, playlistService, libraryService, $timeout) {
+
+		$scope.tracks = null;
+		$rootScope.currentView = window.location.hash;
+
+		// $rootScope listeneres must be unsubscribed manually when the control is destroyed
+		var unsubFuncs = [];
+
+		function subscribe(event, handler) {
+			unsubFuncs.push( $rootScope.$on(event, handler) );
+		}
+
+		$scope.$on('$destroy', function () {
+			_.each(unsubFuncs, function(func) { func(); });
+		});
+
+		// Call playlistService to play all songs in the current playlist from the beginning
+		$scope.playAll = function() {
+			playlistService.setPlaylist($scope.tracks);
+			playlistService.publish('play');
+		};
+
+		// Play the list, starting from a specific track
+		$scope.playTrack = function(trackId) {
+			// play/pause if currently playing list item clicked
+			if ($scope.$parent.currentTrack && $scope.$parent.currentTrack.id === trackId) {
+				playlistService.publish('togglePlayback');
+			}
+			// on any other list item, start playing the list from this item
+			else {
+				var index = _.findIndex($scope.tracks, function(i) {return i.track.id == trackId;});
+				playlistService.setPlaylist($scope.tracks, index);
+				playlistService.publish('play');
+			}
+		};
+
+		/**
+		 * Gets track data to be dislayed in the tracklist directive
+		 */
+		$scope.getTrackData = function(listItem, index, scope) {
+			var track = listItem.track;
+			var title = track.artistName + ' - ' + track.title;
+			return {
+				title: title,
+				tooltip: title,
+				number: index + 1,
+				id: track.id
+			};
+		};
+
+		$scope.getDraggable = function(trackId) {
+			return { track: libraryService.getTrack(trackId) };
+		};
+
+		subscribe('scrollToTrack', function(event, trackId) {
+			if ($scope.$parent) {
+				$scope.$parent.scrollToItem('track-' + trackId);
+			}
+		});
+
+		// Init happens either immediately (after making the loading animation visible)
+		// or once aritsts have been loaded
+		$timeout(initView);
+
+		subscribe('artistsLoaded', function () {
+			// Nullify any previous tracks to force tracklist directive recreation
+			$scope.tracks = null;
+			$timeout(initView);
+		});
+
+		function initView() {
+			if (libraryService.collectionLoaded()) {
+				$scope.tracks = libraryService.getTracksInAlphaOrder();
+				$timeout(function() {
+					$rootScope.loading = false;
+				});
+			}
+		}
+
+		subscribe('deactivateView', function() {
+			// The small delay may help in bringing up the load indicator a bit faster
+			// on huge collections (tens of thousands of tracks)
+			$timeout(function() {
+				$rootScope.$emit('viewDeactivated');
+			}, 100);
+		});
+
+	}
+]);
 
 angular.module('Music').controller('MainController', [
 '$rootScope', '$scope', '$route', '$timeout', '$window', 'ArtistFactory',
@@ -102,27 +199,35 @@ function ($rootScope, $scope, $route, $timeout, $window, ArtistFactory,
 	];
 
 	$scope.letterAvailable = {};
-	for(var i in $scope.letters) {
-		$scope.letterAvailable[$scope.letters[i]] = false;
+	function resetNavigationLetters() {
+		for(var i in $scope.letters) {
+			$scope.letterAvailable[$scope.letters[i]] = false;
+		}
+	}
+	resetNavigationLetters();
+
+	function updateNavigationLetters(artists) {
+		for (var i=0; i < artists.length; i++) {
+			var artist = artists[i];
+			var letter = artist.name.substr(0,1).toUpperCase();
+
+			if ($scope.letterAvailable.hasOwnProperty(letter)) {
+				$scope.letterAvailable[letter] = true;
+			}
+		}
 	}
 
 	$scope.update = function() {
 		$scope.updateAvailable = false;
 		$rootScope.loadingCollection = true;
+		resetNavigationLetters();
 
 		// load the music collection
 		ArtistFactory.getArtists().then(function(artists) {
 			libraryService.setCollection(artists);
 			$scope.artists = libraryService.getAllArtists();
 
-			for (var i=0; i < artists.length; i++) {
-				var artist = artists[i],
-					letter = artist.name.substr(0,1).toUpperCase();
-
-				if ($scope.letterAvailable.hasOwnProperty(letter)) {
-					$scope.letterAvailable[letter] = true;
-				}
-			}
+			updateNavigationLetters(artists);
 
 			// Emit the event asynchronously so that the DOM tree has already been
 			// manipulated and rendered by the browser when obeservers get the event.
@@ -179,39 +284,50 @@ function ($rootScope, $scope, $route, $timeout, $window, ArtistFactory,
 		});
 	};
 
-	$scope.processNextScanStep = function() {
-		$scope.toScan = false;
-		$scope.scanning = true;
-
+	function processNextScanStep() {
 		var sliceEnd = filesToScanIterator + FILES_TO_SCAN_PER_STEP;
 		var filesForStep = filesToScan.slice(filesToScanIterator, sliceEnd);
 		var params = {
 				files: filesForStep.join(','),
 				finalize: sliceEnd >= filesToScan.length
 		};
-		Restangular.all('scan').post(params).then(function(result){
-			filesToScanIterator = sliceEnd;
+		Restangular.all('scan').post(params).then(function(result) {
+			// Ignore the results if scanning has been cancelled while we
+			// were waiting for the result.
+			if ($scope.scanning) {
+				filesToScanIterator = sliceEnd;
 
-			if(result.filesScanned || result.coversUpdated) {
-				$scope.updateAvailable = true;
-			}
+				if (result.filesScanned || result.coversUpdated) {
+					$scope.updateAvailable = true;
+				}
 
-			$scope.scanningScanned = previouslyScannedCount + filesToScanIterator;
+				$scope.scanningScanned = previouslyScannedCount + filesToScanIterator;
 
-			if(filesToScanIterator < filesToScan.length) {
-				$scope.processNextScanStep();
-			} else {
-				$scope.scanning = false;
-			}
+				if (filesToScanIterator < filesToScan.length) {
+					processNextScanStep();
+				} else {
+					$scope.scanning = false;
+				}
 
-			// Update the newly scanned tracks to UI automatically when
-			// a) the first batch is ready
-			// b) the scanning process is completed.
-			// Otherwise the UI state is updated only when the user hits the 'update' button
-			if($scope.updateAvailable && $scope.artists && ($scope.artists.length === 0 || !$scope.scanning)) {
-				$scope.update();
+				// Update the newly scanned tracks to UI automatically when
+				// a) the first batch is ready
+				// b) the scanning process is completed.
+				// Otherwise the UI state is updated only when the user hits the 'update' button
+				if ($scope.updateAvailable && $scope.artists && ($scope.artists.length === 0 || !$scope.scanning)) {
+					$scope.update();
+				}
 			}
 		});
+	}
+
+	$scope.startScanning = function() {
+		$scope.toScan = false;
+		$scope.scanning = true;
+		processNextScanStep();
+	};
+
+	$scope.stopScanning = function() {
+		$scope.scanning = false;
 	};
 
 	var controls = document.getElementById('controls');
@@ -222,7 +338,7 @@ function ($rootScope, $scope, $route, $timeout, $window, ArtistFactory,
 	$scope.scrollToItem = function(itemId) {
 		var container = document.getElementById('app-content');
 		var element = document.getElementById(itemId);
-		if(container && element) {
+		if (container && element) {
 			angular.element(container).scrollToElement(
 					angular.element(element), $scope.scrollOffset(), 500);
 		}
@@ -232,7 +348,7 @@ function ($rootScope, $scope, $route, $timeout, $window, ArtistFactory,
 	function adjustControlsBarWidth() {
 		try {
 			var controlsWidth = $window.innerWidth - getScrollBarWidth();
-			if($(window).width() > 768) {
+			if ($(window).width() > 768) {
 				controlsWidth -= $('#app-navigation').outerWidth();
 			}
 			$('#controls').css('width', controlsWidth);
@@ -264,7 +380,7 @@ angular.module('Music').controller('OverviewController', [
 
 		$rootScope.currentView = '#';
 
-		var INCREMENTAL_LOAD_STEP = 4;
+		var INCREMENTAL_LOAD_STEP = 10;
 		$scope.incrementalLoadLimit = INCREMENTAL_LOAD_STEP;
 
 		// $rootScope listeneres must be unsubscribed manually when the control is destroyed
@@ -319,10 +435,6 @@ angular.module('Music').controller('OverviewController', [
 			}
 		};
 
-		$scope.$on('playTrack', function (event, trackId) {
-			$scope.playTrack(trackId);
-		});
-
 		$scope.playAlbum = function(album) {
 			// update URL hash
 			window.location.hash = '#/album/' + album.id;
@@ -350,6 +462,37 @@ angular.module('Music').controller('OverviewController', [
 			draggable[type] = draggedElement;
 			return draggable;
 		};
+
+		$scope.getTrackDraggable = function(trackId) {
+			return $scope.getDraggable('track', libraryService.getTrack(trackId));
+		};
+
+		/**
+		 * Gets track data to be dislayed in the tracklist directive
+		 */
+		$scope.getTrackData = function(track, index, scope) {
+			return {
+				title: getTitleString(track, scope.artist, false),
+				tooltip: getTitleString(track, scope.artist, true),
+				number: track.number,
+				id: track.id
+			};
+		};
+
+		/**
+		 * Formats a track title string for displaying in tracklist directive
+		 */
+		function getTitleString(track, artist, plaintext) {
+			var att = track.title;
+			if (track.artistId !== artist.id) {
+				var artistName = ' (' + track.artistName + ') ';
+				if (!plaintext) {
+					artistName = ' <div class="muted">' + artistName + '</div>';
+				}
+				att += artistName;
+			}
+			return att;
+		}
 
 		// emited on end of playlist by playerController
 		subscribe('playlistEnded', function() {
@@ -426,9 +569,7 @@ angular.module('Music').controller('OverviewController', [
 			$timeout(showMore);
 		}
 
-		subscribe('artistsLoaded', function() {
-			showMore();
-		});
+		subscribe('artistsLoaded', showMore);
 
 		function showLess() {
 			$scope.incrementalLoadLimit -= INCREMENTAL_LOAD_STEP;
@@ -663,7 +804,7 @@ angular.module('Music').controller('PlaylistViewController', [
 	'$rootScope', '$scope', '$routeParams', 'playlistService', 'libraryService',
 	'gettext', 'gettextCatalog', 'Restangular', '$timeout',
 	function ($rootScope, $scope, $routeParams, playlistService, libraryService,
-			gettext, gettextCatalog, Restangular , $timeout) {
+			gettext, gettextCatalog, Restangular, $timeout) {
 
 		var INCREMENTAL_LOAD_STEP = 1000;
 		$scope.incrementalLoadLimit = INCREMENTAL_LOAD_STEP;
@@ -677,7 +818,7 @@ angular.module('Music').controller('PlaylistViewController', [
 			unsubFuncs.push( $rootScope.$on(event, handler) );
 		}
 
-		$scope.$on('$destroy', function () {
+		$scope.$on('$destroy', function() {
 			_.each(unsubFuncs, function(func) { func(); });
 		});
 
@@ -757,7 +898,7 @@ angular.module('Music').controller('PlaylistViewController', [
 		};
 
 		$scope.allowDrop = function(draggable, dstIndex) {
-			return $scope.playlist && draggable.srcIndex != dstIndex;
+			return draggable.srcIndex != dstIndex;
 		};
 
 		$scope.updateHoverStyle = function(dstIndex) {
@@ -782,15 +923,9 @@ angular.module('Music').controller('PlaylistViewController', [
 
 		// Init happens either immediately (after making the loading animation visible)
 		// or once both aritsts and playlists have been loaded
-		$timeout(function() {
-			initViewFromRoute();
-		});
-		subscribe('artistsLoaded', function () {
-			initViewFromRoute();
-		});
-		subscribe('playlistsLoaded', function () {
-			initViewFromRoute();
-		});
+		$timeout(initViewFromRoute);
+		subscribe('artistsLoaded', initViewFromRoute);
+		subscribe('playlistsLoaded', initViewFromRoute);
 
 		function listIsPlaying() {
 			return ($rootScope.playingView === $rootScope.currentView);
@@ -821,10 +956,6 @@ angular.module('Music').controller('PlaylistViewController', [
 						window.location.hash = '#/';
 					}
 				}
-				else {
-					$scope.playlist = null;
-					$scope.tracks = libraryService.getTracksInAlphaOrder();
-				}
 				$timeout(showMore);
 			}
 		}
@@ -847,8 +978,8 @@ angular.module('Music').controller('PlaylistViewController', [
 ]);
 
 angular.module('Music').controller('SettingsViewController', [
-	'$scope', '$rootScope', 'Restangular','$window', '$timeout',
-	function ($scope, $rootScope, Restangular, $window, $timeout ) {
+	'$scope', '$rootScope', 'Restangular', '$window', '$timeout', 'gettext', 'gettextCatalog',
+	function ($scope, $rootScope, Restangular, $window, $timeout, gettext, gettextCatalog) {
 
 		$rootScope.currentView = window.location.hash;
 
@@ -865,19 +996,31 @@ angular.module('Music').controller('SettingsViewController', [
 
 		$scope.selectPath = function() {
 			OC.dialogs.filepicker(
-				t('music', 'Path to your music collection'),
+				gettextCatalog.getString(gettext('Path to your music collection')),
 				function (path) {
+					if (path.substr(-1) !== '/') {
+						path = path + '/';
+					}
 					if ($scope.settings.path !== path) {
-						Restangular.one('settings/user/path').customPOST({value: path}, '', {}, {}).then(function (data) {
-							if (data.success) {
-								$scope.errorPath = false;
-								$scope.settings.path = path;
-								$scope.$parent.update();
-								$scope.$parent.updateFilesToScan();
-							} else {
-								$scope.errorPath = true;
+						// Stop any ongoing scan if path got changed
+						$scope.$parent.stopScanning();
+
+						// Store the parent reference before posting the changed value to backend;
+						// $scope.$parent may not be available any more in the callback in case
+						// the user has navigated to another view in the meantime.
+						var parent = $scope.$parent;
+						Restangular.all('settings/user/path').post({value: path}).then(
+							function (data) {
+								if (data.success) {
+									$scope.errorPath = false;
+									$scope.settings.path = path;
+									parent.update();
+									parent.updateFilesToScan();
+								} else {
+									$scope.errorPath = true;
+								}
 							}
-						});
+						);
 					}
 				},
 				false,
@@ -886,9 +1029,47 @@ angular.module('Music').controller('SettingsViewController', [
 			);
 		};
 
+		$scope.resetCollection = function() {
+			OC.dialogs.confirm(
+				gettextCatalog.getString(gettext('Are you sure to reset the music collection? This removes all scanned trakcs and user-created playlists!')),
+				gettextCatalog.getString(gettext('Reset music collection')),
+				function(confirmed) {
+					if (confirmed) {
+						$scope.resetOngoing = true;
+
+						// stop any ongoing scan before posting the reset command
+						$scope.$parent.stopScanning();
+
+						// $scope.$parent may not be available any more in the callback in case
+						// the user has navigated to another view in the meantime
+						var parent = $scope.$parent;
+						var executeReset = function() {
+							Restangular.all('resetscanned').post().then(
+									function (data) {
+										if (data.success) {
+											parent.update();
+											parent.updateFilesToScan();
+										}
+										$scope.resetOngoing = false;
+									}
+								);
+						};
+
+						// Trigger the reset with a small delay. This is to tackle a small issue when
+						// reset button is pressed during scanning: if the POST /api/scan call fires
+						// just before POST /api/resetscanned, the server may receive these two messages
+						// in undeterministic order. This is because modern browsers typically hold several
+						// TCP connections and successive messages are often sent through different TCP pipes.
+						$timeout(executeReset, 100);
+					}
+				},
+				true
+			);
+		};
+
 		$scope.addAPIKey = function() {
 			var password = Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-6);
-			Restangular.one('settings/userkey/add').customPOST({ password: password, description: $scope.ampacheDescription }, '', {}, {}).then(function(data) {
+			Restangular.all('settings/userkey/add').post({ password: password, description: $scope.ampacheDescription }).then(function(data) {
 				if (data.success) {
 					$scope.settings.ampacheKeys.push({
 						description: $scope.ampacheDescription,
@@ -905,7 +1086,7 @@ angular.module('Music').controller('SettingsViewController', [
 
 		$scope.removeAPIKey = function(key) {
 			key.loading=true;
-			Restangular.one('settings/userkey/remove').customPOST({ id: key.id }, '', {}, {}).then(function(data) {
+			Restangular.all('settings/userkey/remove').post({ id: key.id }).then(function(data) {
 				if (data.success) {
 					// refresh remaining ampacheKeys
 					Restangular.one('settings').get().then(function (value) {
@@ -1190,45 +1371,46 @@ angular.module('Music').directive('sidebarListItem', function() {
 });
 
 /**
- * This custom directive produces a self-contained track list widget that updates its list items according to the global playback state and user interaction.
+ * This custom directive produces a self-contained track list widget that updates
+ * its list items according to the global playback state and user interaction.
  * Handling this with markup alone would produce a large amount of watchers.
  */
 
-
-angular.module('Music').directive('trackList', ['$window', '$rootScope', '$interpolate', function ($window, $rootScope, $interpolate) {
+angular.module('Music').directive('trackList', ['$rootScope', '$interpolate',
+function ($rootScope, $interpolate) {
 
 	var tpl = '<div class="play-pause"></div>' +
-		'<span data-number="{{number}}" class="muted">{{number}}</span> ' +
-		'<span title="{{titleAtt}}">{{title}}</span>';
+		'<span class="muted">{{ number ? number + ".&nbsp;" : "" }}</span>' +
+		'<span title="{{ tooltip }}">{{ title }}</span>';
 
 	var trackRenderer = $interpolate(tpl);
 
 	return {
 		restrict: 'E',
 		link: function (scope, element, attrs) {
-			var rendered = false;
-			var expanded = false;
+			var trackListRendered = false;
+			var hiddenTracksRendered = false;
 			var listContainer;
-			var tracks = scope.album.tracks;
+			var tracks = scope.$eval(attrs.tracks);
+			var getTrackData = scope.$eval(attrs.getTrackData);
+			var playTrack = scope.$eval(attrs.playTrack);
+			var getDraggable = scope.$eval(attrs.getDraggable);
 			var moreText = scope.$eval(attrs.moreText);
 			var lessText = scope.$eval(attrs.lessText);
+			var collapseLimit = attrs.collapseLimit || 999999;
 
 			var listeners = [
-				$rootScope.$watch('currentTrack', function () {
-					requestAnimationFrame(render);
-				}),
-				$rootScope.$watch('playing', function () {
-					requestAnimationFrame(render);
-				})
+				$rootScope.$watch('currentTrack', render),
+				$rootScope.$watch('playing', render)
 			];
 
 			/**
 			 * Render markup (once) and set classes according to current scope (always)
 			 */
 			function render () {
-				if (!rendered) {
-					var widget = document.createDocumentFragment(),
-						trackListFragment = renderTrackList();
+				if (!trackListRendered) {
+					var widget = document.createDocumentFragment();
+					var trackListFragment = renderTrackList();
 
 					listContainer = document.createElement('ul');
 					listContainer.className = 'track-list';
@@ -1237,26 +1419,25 @@ angular.module('Music').directive('trackList', ['$window', '$rootScope', '$inter
 					widget.appendChild(listContainer);
 					element.html(widget);
 					element.addClass('collapsed');
-					rendered = true;
+					trackListRendered = true;
 				}
-				/**
-				 * Set classes for the currently active list item
-				 */
+
+				// Set classes for the currently active list item
 				var elems = listContainer.querySelectorAll(".playing, .current");
 				[].forEach.call(elems, function (el) {
 					el.classList.remove('current');
 					el.classList.remove('playing');
 				});
-				if (!scope.currentTrack) {
-					return;
-				}
-				var playing = listContainer.querySelector('[data-track-id="' + scope.currentTrack.id + '"]');
-				if (playing) {
-					playing.classList.add('current');
-					if ($rootScope.playing) {
-						playing.classList.add('playing');
-					} else {
-						playing.classList.remove('playing');
+
+				if (scope.currentTrack) {
+					var playing = listContainer.querySelector('#track-' + scope.currentTrack.id);
+					if (playing) {
+						playing.classList.add('current');
+						if ($rootScope.playing) {
+							playing.classList.add('playing');
+						} else {
+							playing.classList.remove('playing');
+						}
 					}
 				}
 			}
@@ -1270,23 +1451,23 @@ angular.module('Music').directive('trackList', ['$window', '$rootScope', '$inter
 			function renderTrackList () {
 				var trackListFragment = document.createDocumentFragment();
 
-				for (var index = 0; index < tracks.length; index++) {
-					if (index > 4 && tracks.length !== 6) {
-						break;
-					}
-					var track = tracks[index];
-					var className = '';
-					trackListFragment.appendChild(getTrackNode(track, className));
-
+				var tracksToShow = tracks.length;
+				if (tracksToShow > collapseLimit) {
+					tracksToShow = collapseLimit - 1;
 				}
-				if (tracks.length > 6) {
+
+				for (var i = 0; i < tracksToShow; i++) {
+					trackListFragment.appendChild(getTrackNode(tracks[i], i));
+				}
+
+				if (tracks.length > collapseLimit) {
 					var lessEl = document.createElement('li');
 					var moreEl = document.createElement('li');
 
 					lessEl.innerHTML = lessText;
-					lessEl.classList = 'muted more-less collapsible';
+					lessEl.className = 'muted more-less collapsible';
 					moreEl.innerHTML = moreText;
-					moreEl.classList = 'muted more-less';
+					moreEl.className = 'muted more-less';
 					trackListFragment.appendChild(lessEl);
 					trackListFragment.appendChild(moreEl);
 				}
@@ -1296,97 +1477,61 @@ angular.module('Music').directive('trackList', ['$window', '$rootScope', '$inter
 			/**
 			 * Renders a single Track HTML Node
 			 *
-			 * @param track
-			 * @param className
+			 * @param object track
+			 * @param int index
+			 * @param string className (optional)
 			 * @returns {HTMLLIElement}
 			 */
-			function getTrackNode (track, className) {
+			function getTrackNode (track, index, className) {
 				var listItem = document.createElement('li');
-				var newElement = trackRenderer(prepareTrackTemplateData(track));
-				listItem.setAttribute('data-track-id', track.id);
+				var trackData = getTrackData(track, index, scope);
+				var newElement = trackRenderer(trackData);
+				listItem.id = 'track-' + trackData.id;
 				listItem.setAttribute('draggable', true);
-				listItem.className = className;
+				if (className) {
+					listItem.className = className;
+				}
 				listItem.innerHTML = newElement;
 				return listItem;
 			}
 
 			/**
 			 * Adds those tracks that aren't initially visible to the listContainer
-			 *
-			 * @returns {boolean}
 			 */
 			function renderHiddenTracks () {
-				if (tracks.length < 6) {
-					return;
-				}
 				var trackListFragment = document.createDocumentFragment();
 
-				for (var index = 5; index < tracks.length; index++) {
-					var track = tracks[index];
-					var className = 'collapsible';
-					trackListFragment.appendChild(getTrackNode(track, className));
+				for (var i = collapseLimit - 1; i < tracks.length; i++) {
+					trackListFragment.appendChild(getTrackNode(tracks[i], i, 'collapsible'));
 				}
 				var toggle = listContainer.getElementsByClassName('muted more-less collapsible');
 				listContainer.insertBefore(trackListFragment, toggle[0]);
-				return true;
 			}
 
-			/**
-			 * Checks if the track artist differs from the album artist
-			 *
-			 * @param track
-			 * @returns {boolean}
-			 */
-			function hasDifferentArtist (track) {
-				return (track.artistId !== scope.artist.id);
-			}
-
-			/**
-			 * Formats a track title string for displaying in the template
-			 *
-			 * @param track
-			 * @param plaintext
-			 */
-			function getTitleString (track, plaintext) {
-				var att = track.title;
-				if (hasDifferentArtist(track)) {
-					var artistName = ' (' + track.artistName + ') ';
-					if (!plaintext) {
-						artistName = ' <div class="muted">' + artistName + '</div>';
-					}
-					att += artistName;
+			function trackIdFromElementId(elemId) {
+				if (elemId && elemId.substring(0, 6) === 'track-') {
+					return parseInt(elemId.split('-')[1]);
+				} else {
+					return null;
 				}
-
-				return att;
-			}
-
-			/**
-			 * Prepares template data.
-			 * 
-			 * @param track
-			 */
-			function prepareTrackTemplateData (track) {
-				var data = Object.assign({}, track);//Clone the track data
-				data.title = getTitleString(track);
-				data.titleAtt = getTitleString(track, true);
-				if (data.number) {
-					data.number += '.';
-				}
-				return data;
 			}
 
 			/**
 			 * Click handler for list items
 			 */
 			element.on('click', 'li', function (event) {
-				var trackId = this.getAttribute('data-track-id');
+				var trackId = trackIdFromElementId(this.id);
 				if (trackId) {
-					scope.$emit('playTrack', trackId);
+					playTrack(trackId);
 					scope.$apply();
-					return;
 				}
-				expanded = expanded || renderHiddenTracks();
-				element.toggleClass('collapsed');
+				else { // "show more/less" item
+					if (!hiddenTracksRendered) {
+						renderHiddenTracks();
+						hiddenTracksRendered = true;
+					}
+					element.toggleClass('collapsed');
+				}
 			});
 
 			/**
@@ -1396,12 +1541,10 @@ angular.module('Music').directive('trackList', ['$window', '$rootScope', '$inter
 				if (e.originalEvent) {
 					e.dataTransfer = e.originalEvent.dataTransfer;
 				}
-				var trackId = this.getAttribute('data-track-id');
-				var track = _.findWhere(tracks, {id: parseInt(trackId)});
-				var dragData = {'track': track};
+				var trackId = trackIdFromElementId(this.id);
 				var offset = {x: e.offsetX, y: e.offsetY};
 				var transferDataObject = {
-					data: dragData,
+					data: getDraggable(trackId),
 					channel: 'defaultchannel',
 					offset: offset
 				};

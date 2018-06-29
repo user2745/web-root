@@ -9,7 +9,7 @@
  * @author Morris Jobke <hey@morrisjobke.de>
  * @author Pauli Järvinen <pauli.jarvinen@gmail.com>
  * @copyright Morris Jobke 2013, 2014
- * @copyright Pauli Järvinen 2017
+ * @copyright Pauli Järvinen 2017, 2018
  */
 
 namespace OCA\Music\Controller;
@@ -31,12 +31,12 @@ use \OCA\Music\BusinessLayer\ArtistBusinessLayer;
 use \OCA\Music\BusinessLayer\TrackBusinessLayer;
 use \OCA\Music\Db\Artist;
 use \OCA\Music\Db\Cache;
+use \OCA\Music\Db\Maintenance;
 use \OCA\Music\Db\Track;
 use \OCA\Music\Http\ErrorResponse;
 use \OCA\Music\Http\FileResponse;
 use \OCA\Music\Utility\CoverHelper;
 use \OCA\Music\Utility\Scanner;
-
 
 class ApiController extends Controller {
 
@@ -54,6 +54,8 @@ class ApiController extends Controller {
 	private $scanner;
 	/** @var CoverHelper */
 	private $coverHelper;
+	/** @var Maintenance */
+	private $maintenance;
 	/** @var string */
 	private $userId;
 	/** @var IURLGenerator */
@@ -72,10 +74,11 @@ class ApiController extends Controller {
 								Cache $cache,
 								Scanner $scanner,
 								CoverHelper $coverHelper,
+								Maintenance $maintenance,
 								$userId,
 								IL10N $l10n,
 								Folder $userFolder,
-								Logger $logger){
+								Logger $logger) {
 		parent::__construct($appname, $request);
 		$this->l10n = $l10n;
 		$this->trackBusinessLayer = $trackbusinesslayer;
@@ -84,6 +87,7 @@ class ApiController extends Controller {
 		$this->cache = $cache;
 		$this->scanner = $scanner;
 		$this->coverHelper = $coverHelper;
+		$this->maintenance = $maintenance;
 		$this->userId = $userId;
 		$this->urlGenerator = $urlGenerator;
 		$this->userFolder = $userFolder;
@@ -95,8 +99,8 @@ class ApiController extends Controller {
 	 * @param string $slug the slug
 	 * @return string the id
 	 */
-	protected function getIdFromSlug($slug){
-		$split = explode('-', $slug, 2);
+	protected function getIdFromSlug($slug) {
+		$split = \explode('-', $slug, 2);
 
 		return $split[0];
 	}
@@ -134,16 +138,16 @@ class ApiController extends Controller {
 		/** @var Artist[] $allArtists */
 		$allArtists = $this->artistBusinessLayer->findAll($this->userId);
 
-		$allArtistsByIdAsObj = array();
-		$allArtistsByIdAsArr = array();
+		$allArtistsByIdAsObj = [];
+		$allArtistsByIdAsArr = [];
 		foreach ($allArtists as &$artist) {
 			$artistId = $artist->getId();
 			$allArtistsByIdAsObj[$artistId] = $artist;
 			$allArtistsByIdAsArr[$artistId] = $artist->toCollection($this->l10n);
 		}
 
-		$allAlbumsByIdAsObj = array();
-		$allAlbumsByIdAsArr = array();
+		$allAlbumsByIdAsObj = [];
+		$allAlbumsByIdAsArr = [];
 		$coverHashes = $this->coverHelper->getAllCachedCoverHashes($this->userId);
 		foreach ($allAlbums as &$album) {
 			$albumId = $album->getId();
@@ -153,7 +157,7 @@ class ApiController extends Controller {
 					$this->urlGenerator, $this->l10n, $coverHash);
 		}
 
-		$artists = array();
+		$artists = [];
 		foreach ($allTracks as $track) {
 			$albumObj = $allAlbumsByIdAsObj[$track->getAlbumId()];
 			$trackArtistObj = $allArtistsByIdAsObj[$track->getArtistId()];
@@ -162,24 +166,23 @@ class ApiController extends Controller {
 			if (empty($albumObj) || empty($trackArtistObj) || empty($albumArtist)) {
 				$this->logger->log("DB error on track {$track->id} '{$track->title}': ".
 						"album or artist missing. Skipping the track.", 'warn');
-			}
-			else {
+			} else {
 				$track->setAlbum($albumObj);
 				$track->setArtist($trackArtistObj);
 
 				if (!isset($albumArtist['albums'])) {
-					$albumArtist['albums'] = array();
+					$albumArtist['albums'] = [];
 					$artists[] = &$albumArtist;
 				}
 				$album = &$allAlbumsByIdAsArr[$track->getAlbumId()];
 				if (!isset($album['tracks'])) {
-					$album['tracks'] = array();
+					$album['tracks'] = [];
 					$albumArtist['albums'][] = &$album;
 				}
 				$album['tracks'][] = $track->toCollection($this->l10n);
 			}
 		}
-		return json_encode($artists);
+		return \json_encode($artists);
 	}
 
 	/**
@@ -187,21 +190,21 @@ class ApiController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function artists($fulltree, $albums) {
-		$fulltree = filter_var($fulltree, FILTER_VALIDATE_BOOLEAN);
-		$includeAlbums = filter_var($albums, FILTER_VALIDATE_BOOLEAN);
+		$fulltree = \filter_var($fulltree, FILTER_VALIDATE_BOOLEAN);
+		$includeAlbums = \filter_var($albums, FILTER_VALIDATE_BOOLEAN);
 		/** @var Artist[] $artists */
 		$artists = $this->artistBusinessLayer->findAll($this->userId);
-		foreach($artists as &$artist) {
+		foreach ($artists as &$artist) {
 			$artist = $artist->toAPI($this->urlGenerator, $this->l10n);
-			if($fulltree || $includeAlbums) {
+			if ($fulltree || $includeAlbums) {
 				$artistId = $artist['id'];
 				$artistAlbums = $this->albumBusinessLayer->findAllByArtist($artistId, $this->userId);
-				foreach($artistAlbums as &$album) {
+				foreach ($artistAlbums as &$album) {
 					$album = $album->toAPI($this->urlGenerator, $this->l10n);
-					if($fulltree) {
+					if ($fulltree) {
 						$albumId = $album['id'];
 						$tracks = $this->trackBusinessLayer->findAllByAlbum($albumId, $this->userId, $artistId);
-						foreach($tracks as &$track) {
+						foreach ($tracks as &$track) {
 							$track = $track->toAPI($this->urlGenerator);
 						}
 						$album['tracks'] = $tracks;
@@ -218,19 +221,19 @@ class ApiController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function artist($artistIdOrSlug, $fulltree) {
-		$fulltree = filter_var($fulltree, FILTER_VALIDATE_BOOLEAN);
+		$fulltree = \filter_var($fulltree, FILTER_VALIDATE_BOOLEAN);
 		$artistId = $this->getIdFromSlug($artistIdOrSlug);
 		/** @var Artist $artist */
 		$artist = $this->artistBusinessLayer->find($artistId, $this->userId);
 		$artist = $artist->toAPI($this->urlGenerator, $this->l10n);
-		if($fulltree) {
+		if ($fulltree) {
 			$artistId = $artist['id'];
 			$albums = $this->albumBusinessLayer->findAllByArtist($artistId, $this->userId);
-			foreach($albums as &$album) {
+			foreach ($albums as &$album) {
 				$album = $album->toAPI($this->urlGenerator, $this->l10n);
 				$albumId = $album['id'];
 				$tracks = $this->trackBusinessLayer->findAllByAlbum($albumId, $this->userId, $artistId);
-				foreach($tracks as &$track) {
+				foreach ($tracks as &$track) {
 					$track = $track->toAPI($this->urlGenerator);
 				}
 				$album['tracks'] = $tracks;
@@ -245,20 +248,20 @@ class ApiController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function albums($fulltree) {
-		$fulltree = filter_var($fulltree, FILTER_VALIDATE_BOOLEAN);
+		$fulltree = \filter_var($fulltree, FILTER_VALIDATE_BOOLEAN);
 		$albums = $this->albumBusinessLayer->findAll($this->userId);
-		foreach($albums as &$album) {
+		foreach ($albums as &$album) {
 			$artistIds = $album->getArtistIds();
 			$album = $album->toAPI($this->urlGenerator, $this->l10n);
-			if($fulltree) {
+			if ($fulltree) {
 				$albumId = $album['id'];
 				$tracks = $this->trackBusinessLayer->findAllByAlbum($albumId, $this->userId);
-				foreach($tracks as &$track) {
+				foreach ($tracks as &$track) {
 					$track = $track->toAPI($this->urlGenerator);
 				}
 				$album['tracks'] = $tracks;
 				$artists = $this->artistBusinessLayer->findMultipleById($artistIds, $this->userId);
-				foreach($artists as &$artist) {
+				foreach ($artists as &$artist) {
 					$artist = $artist->toAPI($this->urlGenerator, $this->l10n);
 				}
 				$album['artists'] = $artists;
@@ -272,21 +275,21 @@ class ApiController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function album($albumIdOrSlug, $fulltree) {
-		$fulltree = filter_var($fulltree, FILTER_VALIDATE_BOOLEAN);
+		$fulltree = \filter_var($fulltree, FILTER_VALIDATE_BOOLEAN);
 		$albumId = $this->getIdFromSlug($albumIdOrSlug);
 		$album = $this->albumBusinessLayer->find($albumId, $this->userId);
 
 		$artistIds = $album->getArtistIds();
 		$album = $album->toAPI($this->urlGenerator, $this->l10n);
-		if($fulltree) {
+		if ($fulltree) {
 			$albumId = $album['id'];
 			$tracks = $this->trackBusinessLayer->findAllByAlbum($albumId, $this->userId);
-			foreach($tracks as &$track) {
+			foreach ($tracks as &$track) {
 				$track = $track->toAPI($this->urlGenerator);
 			}
 			$album['tracks'] = $tracks;
 			$artists = $this->artistBusinessLayer->findMultipleById($artistIds, $this->userId);
-			foreach($artists as &$artist) {
+			foreach ($artists as &$artist) {
 				$artist = $artist->toAPI($this->urlGenerator, $this->l10n);
 			}
 			$album['artists'] = $artists;
@@ -300,19 +303,19 @@ class ApiController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function tracks($artist, $album, $fulltree) {
-		$fulltree = filter_var($fulltree, FILTER_VALIDATE_BOOLEAN);
-		if($artist) {
+		$fulltree = \filter_var($fulltree, FILTER_VALIDATE_BOOLEAN);
+		if ($artist) {
 			$tracks = $this->trackBusinessLayer->findAllByArtist($artist, $this->userId);
-		} elseif($album) {
+		} elseif ($album) {
 			$tracks = $this->trackBusinessLayer->findAllByAlbum($album, $this->userId);
 		} else {
 			$tracks = $this->trackBusinessLayer->findAll($this->userId);
 		}
-		foreach($tracks as &$track) {
+		foreach ($tracks as &$track) {
 			$artistId = $track->getArtistId();
 			$albumId = $track->getAlbumId();
 			$track = $track->toAPI($this->urlGenerator);
-			if($fulltree) {
+			if ($fulltree) {
 				/** @var Artist $artist */
 				$artist = $this->artistBusinessLayer->find($artistId, $this->userId);
 				$track['artist'] = $artist->toAPI($this->urlGenerator, $this->l10n);
@@ -355,14 +358,13 @@ class ApiController extends Controller {
 	 */
 	public function fileWebDavUrl($fileId) {
 		$nodes = $this->userFolder->getById($fileId);
-		if (count($nodes) == 0) {
+		if (\count($nodes) == 0) {
 			return new ErrorResponse(Http::STATUS_NOT_FOUND);
-		}
-		else {
+		} else {
 			$node = $nodes[0];
 			$relativePath = $this->userFolder->getRelativePath($node->getPath());
 			// URL encode each part of the file path
-			$relativePath = join('/', array_map('rawurlencode', explode('/', $relativePath)));
+			$relativePath = \join('/', \array_map('rawurlencode', \explode('/', $relativePath)));
 			$url = $this->urlGenerator->getAbsoluteUrl('remote.php/webdav' . $relativePath);
 			return new JSONResponse(['url' => $url]);
 		}
@@ -380,18 +382,19 @@ class ApiController extends Controller {
 
 	/**
 	 * @NoAdminRequired
+	 * @UseSession to keep the session reserved while execution in progress
 	 */
 	public function scan($files, $finalize) {
 		// extract the parameters
-		$fileIds = array_map('intval', explode(',', $files));
-		$finalize = filter_var($finalize, FILTER_VALIDATE_BOOLEAN);
+		$fileIds = \array_map('intval', \explode(',', $files));
+		$finalize = \filter_var($finalize, FILTER_VALIDATE_BOOLEAN);
 
 		$filesScanned = $this->scanner->scanFiles($this->userId, $this->userFolder, $fileIds);
 
 		$coversUpdated = false;
 		if ($finalize) {
 			$coversUpdated = $this->scanner->findCovers();
-			$totalCount = count($this->scanner->getScannedFiles($this->userId));
+			$totalCount = \count($this->scanner->getScannedFiles($this->userId));
 			$this->logger->log("Scanning finished, user $this->userId has $totalCount scanned tracks in total", 'info');
 		}
 
@@ -403,25 +406,31 @@ class ApiController extends Controller {
 
 	/**
 	 * @NoAdminRequired
+	 * @UseSession to keep the session reserved while execution in progress
+	 */
+	public function resetScanned() {
+		$this->maintenance->resetDb($this->userId);
+		return new JSONResponse(['success' => true]);
+	}
+
+	/**
+	 * @NoAdminRequired
 	 * @NoCSRFRequired
 	 */
 	public function download($fileId) {
-		// we no longer need the session to be kept open
-		session_write_close();
-
 		$track = $this->trackBusinessLayer->findByFileId($fileId, $this->userId);
 		if ($track === null) {
 			return new ErrorResponse(Http::STATUS_NOT_FOUND, 'track not found');
 		}
 
 		$nodes = $this->userFolder->getById($track->getFileId());
-		if(count($nodes) > 0 ) {
+		if (\count($nodes) > 0) {
 			// get the first valid node
 			$node = $nodes[0];
 
 			$mime = $node->getMimeType();
 			$content = $node->getContent();
-			return new FileResponse(array('mimetype' => $mime, 'content' => $content));
+			return new FileResponse(['mimetype' => $mime, 'content' => $content]);
 		}
 
 		return new ErrorResponse(Http::STATUS_NOT_FOUND, 'file not found');
@@ -432,9 +441,6 @@ class ApiController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function fileInfo($fileId) {
-		// we no longer need the session to be kept open
-		session_write_close();
-
 		$info = $this->scanner->getFileInfo($fileId, $this->userId, $this->userFolder);
 		if ($info) {
 			return new JSONResponse($info);
@@ -448,13 +454,10 @@ class ApiController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function cover($albumIdOrSlug) {
-		// we no longer need the session to be kept open
-		session_write_close();
-
 		$albumId = $this->getIdFromSlug($albumIdOrSlug);
 		$coverData = $this->coverHelper->getCover($albumId, $this->userId, $this->userFolder);
 
-		if ($coverData !== NULL) {
+		if ($coverData !== null) {
 			return new FileResponse($coverData);
 		} else {
 			return new ErrorResponse(Http::STATUS_NOT_FOUND);
@@ -466,12 +469,9 @@ class ApiController extends Controller {
 	 * @NoCSRFRequired
 	 */
 	public function cachedCover($hash) {
-		// we no longer need the session to be kept open
-		session_write_close();
-
 		$coverData = $this->coverHelper->getCoverFromCache($hash, $this->userId);
 
-		if ($coverData !== NULL) {
+		if ($coverData !== null) {
 			$response =  new FileResponse($coverData);
 			// instruct also the client-side to cache the result, this is safe
 			// as the resource URI contains the image hash

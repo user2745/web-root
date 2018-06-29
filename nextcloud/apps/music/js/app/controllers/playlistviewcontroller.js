@@ -1,23 +1,13 @@
-
 /**
  * ownCloud - Music app
  *
- * @author Morris Jobke
- * @copyright 2013 Morris Jobke <morris.jobke@gmail.com>
+ * This file is licensed under the Affero General Public License version 3 or
+ * later. See the COPYING file.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU AFFERO GENERAL PUBLIC LICENSE
- * License as published by the Free Software Foundation; either
- * version 3 of the License, or any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU AFFERO GENERAL PUBLIC LICENSE for more details.
- *
- * You should have received a copy of the GNU Affero General Public
- * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
- *
+ * @author Morris Jobke <hey@morrisjobke.de>
+ * @author Pauli Järvinen <pauli.jarvinen@gmail.com>
+ * @copyright Morris Jobke 2013
+ * @copyright Pauli Järvinen 2017
  */
 
 
@@ -25,7 +15,7 @@ angular.module('Music').controller('PlaylistViewController', [
 	'$rootScope', '$scope', '$routeParams', 'playlistService', 'libraryService',
 	'gettext', 'gettextCatalog', 'Restangular', '$timeout',
 	function ($rootScope, $scope, $routeParams, playlistService, libraryService,
-			gettext, gettextCatalog, Restangular , $timeout) {
+			gettext, gettextCatalog, Restangular, $timeout) {
 
 		var INCREMENTAL_LOAD_STEP = 1000;
 		$scope.incrementalLoadLimit = INCREMENTAL_LOAD_STEP;
@@ -39,7 +29,7 @@ angular.module('Music').controller('PlaylistViewController', [
 			unsubFuncs.push( $rootScope.$on(event, handler) );
 		}
 
-		$scope.$on('$destroy', function () {
+		$scope.$on('$destroy', function() {
 			_.each(unsubFuncs, function(func) { func(); });
 		});
 
@@ -119,7 +109,7 @@ angular.module('Music').controller('PlaylistViewController', [
 		};
 
 		$scope.allowDrop = function(draggable, dstIndex) {
-			return $scope.playlist && draggable.srcIndex != dstIndex;
+			return draggable.srcIndex != dstIndex;
 		};
 
 		$scope.updateHoverStyle = function(dstIndex) {
@@ -144,15 +134,9 @@ angular.module('Music').controller('PlaylistViewController', [
 
 		// Init happens either immediately (after making the loading animation visible)
 		// or once both aritsts and playlists have been loaded
-		$timeout(function() {
-			initViewFromRoute();
-		});
-		subscribe('artistsLoaded', function () {
-			initViewFromRoute();
-		});
-		subscribe('playlistsLoaded', function () {
-			initViewFromRoute();
-		});
+		$timeout(initViewFromRoute);
+		subscribe('artistsLoaded', initViewFromRoute);
+		subscribe('playlistsLoaded', initViewFromRoute);
 
 		function listIsPlaying() {
 			return ($rootScope.playingView === $rootScope.currentView);
@@ -182,10 +166,6 @@ angular.module('Music').controller('PlaylistViewController', [
 						OC.Notification.showTemporary(gettextCatalog.getString(gettext('Requested entry was not found')));
 						window.location.hash = '#/';
 					}
-				}
-				else {
-					$scope.playlist = null;
-					$scope.tracks = libraryService.getTracksInAlphaOrder();
 				}
 				$timeout(showMore);
 			}

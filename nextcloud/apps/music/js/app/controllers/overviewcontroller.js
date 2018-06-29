@@ -5,7 +5,9 @@
  * later. See the COPYING file.
  *
  * @author Morris Jobke <hey@morrisjobke.de>
- * @copyright Morris Jobke  2014
+ * @author Pauli Järvinen <pauli.jarvinen@gmail.com>
+ * @copyright Morris Jobke 2014
+ * @copyright Pauli Järvinen 2017
  */
 
 angular.module('Music').controller('OverviewController', [
@@ -16,7 +18,7 @@ angular.module('Music').controller('OverviewController', [
 
 		$rootScope.currentView = '#';
 
-		var INCREMENTAL_LOAD_STEP = 4;
+		var INCREMENTAL_LOAD_STEP = 10;
 		$scope.incrementalLoadLimit = INCREMENTAL_LOAD_STEP;
 
 		// $rootScope listeneres must be unsubscribed manually when the control is destroyed
@@ -71,10 +73,6 @@ angular.module('Music').controller('OverviewController', [
 			}
 		};
 
-		$scope.$on('playTrack', function (event, trackId) {
-			$scope.playTrack(trackId);
-		});
-
 		$scope.playAlbum = function(album) {
 			// update URL hash
 			window.location.hash = '#/album/' + album.id;
@@ -102,6 +100,37 @@ angular.module('Music').controller('OverviewController', [
 			draggable[type] = draggedElement;
 			return draggable;
 		};
+
+		$scope.getTrackDraggable = function(trackId) {
+			return $scope.getDraggable('track', libraryService.getTrack(trackId));
+		};
+
+		/**
+		 * Gets track data to be dislayed in the tracklist directive
+		 */
+		$scope.getTrackData = function(track, index, scope) {
+			return {
+				title: getTitleString(track, scope.artist, false),
+				tooltip: getTitleString(track, scope.artist, true),
+				number: track.number,
+				id: track.id
+			};
+		};
+
+		/**
+		 * Formats a track title string for displaying in tracklist directive
+		 */
+		function getTitleString(track, artist, plaintext) {
+			var att = track.title;
+			if (track.artistId !== artist.id) {
+				var artistName = ' (' + track.artistName + ') ';
+				if (!plaintext) {
+					artistName = ' <div class="muted">' + artistName + '</div>';
+				}
+				att += artistName;
+			}
+			return att;
+		}
 
 		// emited on end of playlist by playerController
 		subscribe('playlistEnded', function() {
@@ -178,9 +207,7 @@ angular.module('Music').controller('OverviewController', [
 			$timeout(showMore);
 		}
 
-		subscribe('artistsLoaded', function() {
-			showMore();
-		});
+		subscribe('artistsLoaded', showMore);
 
 		function showLess() {
 			$scope.incrementalLoadLimit -= INCREMENTAL_LOAD_STEP;

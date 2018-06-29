@@ -29,4 +29,6 @@ $CONFIG = array (
   'installed' => true,
   'instanceid' => 'ocs9ha5qgbn1',
   'maintenance' => false,
+  'theme' => '',
+  'loglevel' => 2,
 );
