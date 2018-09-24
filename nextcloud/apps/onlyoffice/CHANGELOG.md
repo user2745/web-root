@@ -1,5 +1,29 @@
 # Change Log
 
+## 2.0.4
+## Added
+- opening for editing not OOXML
+
+## Changed
+- different keys for a file from different instances
+- replace hash generator to JWT
+
+## 2.0.2
+## Changed
+- deleted unsupported methods
+
+## 1.4.0
+## Added
+- transition from the editor to the list of files in the same tab
+- default action for all supported formats
+- redirect to the login page if are not logged in
+- a separate action to call the file conversion
+
+## Changed
+- improved checks when saving connection settings
+- expanded the list of formats
+- fixed exceptions when opening file shared by link
+
 ## 1.3.0
 ## Added
 - add macro-enabled and template formats

@@ -1,9 +1,3 @@
-## 0.4.1
-
-### Changed
-
-- Fix bug in IE11
-
 ## 0.4.0
 
 ### Changed

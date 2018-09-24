@@ -28,7 +28,7 @@
             "satooshi/php-coveralls": "0.*",
             "squizlabs/php_codesniffer": "2.*"
         },
-        "time": "2017-09-30 15:15:40",
+        "time": "2017-09-30T15:15:40+00:00",
         "type": "library",
         "installation-source": "dist",
         "autoload": {

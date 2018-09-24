@@ -3,24 +3,27 @@
  *
  * (c) Copyright Ascensio System Limited 2010-2018
  *
- * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU
- * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html).
- * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that
- * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ * This program is a free software product.
+ * You can redistribute it and/or modify it under the terms of the GNU Affero General Public License
+ * (AGPL) version 3 as published by the Free Software Foundation.
+ * In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended to the effect
+ * that Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
  *
- * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
- * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ * This program is distributed WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * For details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
  *
- * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ * You can contact Ascensio System SIA at 17-2 Elijas street, Riga, Latvia, EU, LV-1021.
  *
- * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display
- * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ * The interactive user interfaces in modified source and object code versions of the Program
+ * must display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
  *
- * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains
- * relevant author attributions when distributing the software. If the display of the logo in its graphic
- * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE"
- * in every copy of the program you distribute.
- * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ * Pursuant to Section 7(b) of the License you must retain the original Product logo when distributing the program.
+ * Pursuant to Section 7(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
+ * All the Product's GUI elements, including illustrations and icon sets, as well as technical
+ * writing content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0 International.
+ * See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
  *
  */
 
@@ -29,14 +32,14 @@
 ?>
 <div class="section section-onlyoffice">
     <h2>ONLYOFFICE</h2>
-    <a target="_blank" class="icon-info svg" title="" href="https://api.onlyoffice.com/editors/owncloud" data-original-title="<?php p($l->t("Documentation")) ?>"></a>
+    <a target="_blank" class="icon-info svg" title="" href="https://api.onlyoffice.com/editors/nextcloud" data-original-title="<?php p($l->t("Documentation")) ?>"></a>
 
     <p><?php p($l->t("ONLYOFFICE Document Service Location specifies the address of the server with the document services installed. Please change the '<documentserver>' for the server address in the below line.")) ?></p>
 
     <?php if ($_["encryption"]) { ?>
     <p class="onlyoffice-error">
         <?php p($l->t("Encryption App is enabled, the application cannot work. You can continue working with the application if you enable master key.")) ?>
-        <a target="_blank" class="icon-info svg" title="" href="https://api.onlyoffice.com/editors/owncloud#masterKey" data-original-title="encryption:enable-master-key"></a>
+        <a target="_blank" class="icon-info svg" title="" href="https://api.onlyoffice.com/editors/nextcloud#masterKey" data-original-title="encryption:enable-master-key"></a>
     </p>
     <?php } ?>
 
@@ -64,15 +67,35 @@
     <br />
 
     <h3 class="onlyoffice-header"><?php p($l->t("The default application for opening the format")) ?></h3>
-    <?php foreach ($_["defFormats"] as $format => $setting) { ?>
-    <p>
-        <input type="checkbox" class="checkbox"
-            id="onlyofficeDefFormat<?php p($format) ?>"
-            name="<?php p($format) ?>"
-            <?php if ($setting) { ?>checked="checked"<?php } ?> />
-        <label for="onlyofficeDefFormat<?php p($format) ?>"><?php p($format) ?></label>
-    </p>
-    <?php } ?>
+    <div class="onlyoffice-exts">
+        <?php foreach ($_["formats"] as $format => $setting) { ?>
+            <?php if (array_key_exists("mime", $setting)) { ?>
+            <div>
+                <input type="checkbox" class="checkbox"
+                    id="onlyofficeDefFormat<?php p($format) ?>"
+                    name="<?php p($format) ?>"
+                    <?php if ($setting["def"]) { ?>checked="checked"<?php } ?> />
+                <label for="onlyofficeDefFormat<?php p($format) ?>"><?php p($format) ?></label>
+            </div>
+            <?php } ?>
+        <?php } ?>
+    </div>
+
+    <h3 class="onlyoffice-header"><?php p($l->t("Open the file for editing (due to format restrictions, the data might be lost when saving to the formats from the list below)")) ?></h3>
+    <a target="_blank" class="icon-info svg" title="" href="https://api.onlyoffice.com/editors/owncloud#editable" data-original-title="<?php p($l->t("View details")) ?>"></a>
+    <div class="onlyoffice-exts">
+        <?php foreach ($_["formats"] as $format => $setting) { ?>
+            <?php if (array_key_exists("editable", $setting)) { ?>
+            <div>
+                <input type="checkbox" class="checkbox"
+                    id="onlyofficeEditFormat<?php p($format) ?>"
+                    name="<?php p($format) ?>"
+                    <?php if ($setting["edit"]) { ?>checked="checked"<?php } ?> />
+                <label for="onlyofficeEditFormat<?php p($format) ?>"><?php p($format) ?></label>
+            </div>
+            <?php } ?>
+        <?php } ?>
+    </div>
 
     <a id="onlyofficeSave" class="button onlyoffice-header"><?php p($l->t("Save")) ?></a>
 </div>

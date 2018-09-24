@@ -45,6 +45,10 @@
                 'video/x-flv', 'video/x-matroska', 'video/x-msvideo'].indexOf(mimetype) > -1);
         },
 
+        formatValue: function(value) {
+            return Array.isArray(value) ? value.join(", ") : value;
+        },
+
         updateDisplay: function(data) {
             var html = '';
             var showLocation = false;
@@ -54,7 +58,7 @@
 
                 var metadata = data.metadata;
                 for (m in metadata) {
-                    html += '<tr><td class="key">' + m + ':</td><td class="value">' + metadata[m] + '</td></tr>';
+                    html += '<tr><td class="key">' + m + ':</td><td class="value">' + this.formatValue(metadata[m]) + '</td></tr>';
                 }
 
                 showLocation = (data.lat !== null) && (data.lon !== null);
@@ -128,7 +132,7 @@
                 var location = data.address;
                 var address = [];
                 this.add(location.building || location.attraction || location.artwork || location.monument || location.house_number, address);
-                this.add(location.road || location.pedestrian || location.path || location.steps || location.footway || location.cycleway || location.construction, address);
+                this.add(location.road || location.pedestrian || location.path || location.steps || location.footway || location.cycleway || location.bridleway || location.construction, address);
                 this.add(location.city || location.town || location.village || location.hamlet || location.isolated_dwelling, address);
                 this.add(location.country, address);
                 html = address.join(', ');

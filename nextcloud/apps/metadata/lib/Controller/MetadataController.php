@@ -6,6 +6,7 @@ use OCA\Metadata\GetID3\getID3;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use Exception;
 
 class MetadataController extends Controller {
     const EXPOSURE_PROGRAMS = array(
@@ -37,6 +38,10 @@ class MetadataController extends Controller {
         255 => 'Other'
     );
 
+    const FOUR_CC = array(
+        'avc1' => 'H.264 - MPEG-4 AVC (part 10)'
+    );
+
     protected $language;
 
     public function __construct($appName, IRequest $request) {
@@ -62,50 +67,60 @@ class MetadataController extends Controller {
         $lat = null;
         $lon = null;
 
-        $mimetype = Filesystem::getMimeType($source);
-        switch ($mimetype) {
-            case 'audio/flac':
-            case 'audio/mp4':
-            case 'audio/mpeg':
-            case 'audio/ogg':
-            case 'audio/wav':
-            case 'video/3gpp':
-            case 'video/dvd':
-            case 'video/mp4':
-            case 'video/mpeg':
-            case 'video/quicktime':
-            case 'video/x-flv':
-            case 'video/x-matroska':
-            case 'video/x-msvideo':
-                if ($sections = $this->readId3($file)) {
-                    $metadata = $this->getAvMetadata($sections);
-//                    $this->dump($sections, $metadata);
-                }
-                break;
+        try {
+            $mimetype = Filesystem::getMimeType($source);
+            switch ($mimetype) {
+                case 'audio/flac':
+                case 'audio/mp4':
+                case 'audio/mpeg':
+                case 'audio/ogg':
+                case 'audio/wav':
+                case 'video/3gpp':
+                case 'video/dvd':
+                case 'video/mp4':
+                case 'video/mpeg':
+                case 'video/quicktime':
+                case 'video/x-flv':
+                case 'video/x-matroska':
+                case 'video/x-msvideo':
+                    if ($sections = $this->readId3($file)) {
+                        $metadata = $this->getAvMetadata($sections, $lat, $lon);
+//                        $this->dump($sections, $metadata);
+                    }
+                    break;
 
-            case 'image/jpeg':
-                if ($sections = $this->readExif($file)) {
-                    $sections['XMP'] = $this->readJpegXmp($file);
-                    $metadata = $this->getImageMetadata($sections, $lat, $lon);
-//                    $this->dump($sections, $metadata);
-                }
-                break;
+                case 'image/jpeg':
+                    if ($sections = $this->readExif($file)) {
+                        $sections['XMP'] = $this->readJpegXmp($file);
+                        if (!array_key_exists('GPS', $sections)) {
+                          $sections['GPS'] = $this->readJpegGps($file);
+                        }
+                        $metadata = $this->getImageMetadata($sections, $lat, $lon);
+//                        $this->dump($sections, $metadata);
+                    }
+                    break;
 
-            case 'image/tiff':
-                if ($sections = $this->readExif($file)) {
-                    $sections['XMP'] = $this->readTiffXmp($file);
-                    $metadata = $this->getImageMetadata($sections, $lat, $lon);
-//                    $this->dump($sections, $metadata);
-                }
-                break;
+                case 'image/tiff':
+                    if ($sections = $this->readExif($file)) {
+                        $sections['XMP'] = $this->readTiffXmp($file);
+                        $metadata = $this->getImageMetadata($sections, $lat, $lon);
+//                        $this->dump($sections, $metadata);
+                    }
+                    break;
 
-            default:
-                return new JSONResponse(
-                    array(
-                        'response' => 'error',
-                        'msg' => $this->language->t('Unsupported MIME type "%s".', array($mimetype))
-                    )
-                );
+                default:
+                    throw new Exception($this->language->t('Unsupported MIME type "%s".', array($mimetype)));
+            }
+
+        } catch (Exception $e) {
+            \OC::$server->getLogger()->logException($e, ['app' => 'metadata']);
+
+            return new JSONResponse(
+                array(
+                    'response' => 'error',
+                    'msg' => $e->getMessage()
+                )
+            );
         }
 
         if (!empty($metadata)) {
@@ -136,10 +151,73 @@ class MetadataController extends Controller {
     }
 
     protected function readExif($file) {
+        if (!function_exists('exif_read_data')) {
+            throw new Exception($this->language->t('EXIF support is missing; you might need to install an appropriate package for your system.'));
+        }
+
         return exif_read_data($file, 0, true);
     }
 
+    protected function readJpegGps($file) {
+        return $this->readJpeg($file, function($hnd, $marker, $size) {
+            if (($marker === "\xE1") && ($size > 14)) {                // APP1 with enough data
+                $data = fread($hnd, 6);
+
+                if ($data === 'Exif'."\x00\x00") {
+                    $pos = ftell($hnd);
+
+                    return $this->readTiff($hnd, $pos, function($hnd, $intel, $tagId, $tagType, $count, $offset) use($pos) {
+                        if ($tagId === 0x8825) {
+                            $gps = array();
+                            $this->readTiffIfd($hnd, $pos, $intel, $offset, function($hnd, $intel, $tagId, $tagType, $count, $offsetOrData) use($pos, &$gps) {
+                                switch($tagId) {
+                                    case 0x01:
+                                        $gps['GPSLatitudeRef'] = $offsetOrData;
+                                        break;
+                                    case 0x02:
+                                        fseek($hnd, $pos + $offsetOrData);
+                                        $gps['GPSLatitude'] = array($this->readRat($hnd, $intel), $this->readRat($hnd, $intel), $this->readRat($hnd, $intel));
+                                        break;
+                                    case 0x03:
+                                        $gps['GPSLongitudeRef'] = $offsetOrData;
+                                        break;
+                                    case 0x04:
+                                        fseek($hnd, $pos + $offsetOrData);
+                                        $gps['GPSLongitude'] = array($this->readRat($hnd, $intel), $this->readRat($hnd, $intel), $this->readRat($hnd, $intel));
+                                        break;
+                                    case 0x05:
+                                        $gps['GPSAltitudeRef'] = $offsetOrData;
+                                        break;
+                                    case 0x06:
+                                        fseek($hnd, $pos + $offsetOrData);
+                                        $gps['GPSAltitude'] = $this->readRat($hnd, $intel);
+                                        break;
+                                }
+                            });
+
+                            return $gps;
+                        }
+                    });
+                }
+            }
+        });
+    }
+
     protected function readJpegXmp($file) {
+        return $this->readJpeg($file, function($hnd, $marker, $size) {
+            if (($marker === "\xE1") && ($size > 29)) {                // APP1 with enough data
+                $data = fread($hnd, 29);
+                $size -= 29;
+
+                if ($data === 'http://ns.adobe.com/xap/1.0/'."\x00") {
+                    $xmpMetadata = new XmpMetadata(fread($hnd, $size));
+                    return $xmpMetadata->getArray();
+                }
+            }
+        });
+    }
+
+    protected function readJpeg($file, $callback) {
         if ($hnd = fopen($file, 'rb')) {
             try {
                 $data = fread($hnd, 2);
@@ -149,23 +227,18 @@ class MetadataController extends Controller {
 
                     // While not EOF, tag is valid, and not SOS (Start Of Scan) or EOI (End Of Image)
                     while (!feof($hnd) && ($data[0] === "\xFF") && ($data[1] !== "\xDA") && ($data[1] !== "\xD9")) {
-                        $size = 0;
                         if ((ord($data[1]) < 0xD0) || (ord($data[1]) > 0xD7)) {     // All segments but RSTn have size bytes
-                            $size = $this->unpackShort(false, fread($hnd, 2)) - 2;
-                        }
+                            $size = $this->readShort($hnd, false) - 2;
 
-                        if (($data[1] === "\xE1") && ($size > 29)) {                // APP1 with enough data
-                            $data = fread($hnd, 29);
-                            $size -= 29;
+                            if ($size > 0) {
+                                $pos = ftell($hnd);
+                                $result = call_user_func($callback, $hnd, $data[1], $size);
+                                if ($result) {
+                                    return $result;
+                                }
 
-                            if ($data === 'http://ns.adobe.com/xap/1.0/'."\x00") {
-                                $xmpMetadata = new XmpMetadata(fread($hnd, $size));
-                                return $xmpMetadata->getArray();
+                                fseek($hnd, $pos + $size);
                             }
-                        }
-
-                        if ($size > 0) {
-                            fseek($hnd, $size, SEEK_CUR);
                         }
 
                         $data = fread($hnd, 2);
@@ -183,39 +256,14 @@ class MetadataController extends Controller {
     protected function readTiffXmp($file) {
         if ($hnd = fopen($file, 'rb')) {
             try {
-                $data = fread($hnd, 4);
+                return $this->readTiff($hnd, 0, function($hnd, $intel, $tagId, $tagType, $count, $offset) {
+                    if ($tagId === 0x02BC) {
+                        fseek($hnd, $offset);           // Go to XMP
 
-                if (($data === "II\x2A\x00") || ($data === "MM\x00\x2A")) {     // ID
-                    $intel = ($data[0] === 'I');
-                    $ifdOffs = $this->unpackInt($intel, fread($hnd, 4));
-
-                    while (!feof($hnd) && ($ifdOffs !== 0)) {
-                        fseek($hnd, $ifdOffs, SEEK_SET);                // Go to IFD
-                        $tagCnt = $this->unpackShort($intel, fread($hnd, 2));
-
-                        for ($i = 0; $i < $tagCnt; $i++) {
-                            $tagId = $this->unpackShort($intel, fread($hnd, 2));
-                            fread($hnd, 2);     // TagType
-
-                            if ($tagId === 0x02BC) {
-                                $count = $this->unpackInt($intel, fread($hnd, 4));
-                                $offset = $this->unpackInt($intel, fread($hnd, 4));
-                                fseek($hnd, $offset, SEEK_SET);         // Go to XMP
-
-                                $xmpMetadata = new XmpMetadata(fread($hnd, $count));
-                                return $xmpMetadata->getArray();
-
-                            } else {
-                                fread($hnd, 8);
-                            }
-                        }
-
-                        $ifdOffs = $this->unpackInt($intel, fread($hnd, 4));
-                        if (($ifdOffs !== 0) && ($ifdOffs < ftell($hnd))) {     // Never go back
-                            $ifdOffs = 0;
-                        }
+                        $xmpMetadata = new XmpMetadata(fread($hnd, $count));
+                        return $xmpMetadata->getArray();
                     }
-                }
+                });
 
             } finally {
                 fclose($hnd);
@@ -223,6 +271,56 @@ class MetadataController extends Controller {
         }
 
         return null;
+    }
+
+    protected function readTiff($hnd, $pos, $callback) {
+        $data = fread($hnd, 4);
+
+        if (($data === "II\x2A\x00") || ($data === "MM\x00\x2A")) {     // ID
+            $intel = ($data[0] === 'I');
+            $ifdOffs = $this->readInt($hnd, $intel);
+
+            return $this->readTiffIfd($hnd, $pos, $intel, $ifdOffs, $callback);
+        }
+    }
+
+    protected function readTiffIfd($hnd, $pos, $intel, $ifdOffs, $callback) {
+        while (!feof($hnd) && ($ifdOffs !== 0)) {
+            fseek($hnd, $pos + $ifdOffs);               // Go to IFD
+            $tagCnt = $this->readShort($hnd, $intel);
+
+            for ($i = 0; $i < $tagCnt; $i++) {
+                $tagId = $this->readShort($hnd, $intel);
+                $tagType = $this->readShort($hnd, $intel);
+                $count = $this->readInt($hnd, $intel);
+                $offsetOrData = (($tagType === 2) && ($count <= 4)) ? substr(fread($hnd, 4), 0, $count - 1) : $this->readInt($hnd, $intel);
+                $curr = ftell($hnd);
+
+                $result = call_user_func($callback, $hnd, $intel, $tagId, $tagType, $count, $offsetOrData);
+                if ($result) {
+                    return $result;
+                }
+
+                fseek($hnd, $curr);
+            }
+
+            $ifdOffs = $this->readInt($hnd, $intel);
+            if (($ifdOffs !== 0) && ($ifdOffs < ftell($hnd))) {         // Never go back
+                $ifdOffs = 0;
+            }
+        }
+    }
+
+    protected function readShort($hnd, $intel) {
+        return $this->unpackShort($intel, fread($hnd, 2));
+    }
+
+    protected function readInt($hnd, $intel) {
+        return $this->unpackInt($intel, fread($hnd, 4));
+    }
+
+    protected function readRat($hnd, $intel) {
+        return $this->readInt($hnd, $intel) . '/' . $this->readInt($hnd, $intel);
     }
 
     protected function unpackShort($intel, $data) {
@@ -233,7 +331,7 @@ class MetadataController extends Controller {
         return unpack(($intel? 'V' : 'N').'d', $data)['d'];
     }
 
-    protected function getAvMetadata($sections) {
+    protected function getAvMetadata($sections, &$lat, &$lon) {
         $return = array();
 
         $audio = $this->getVal('audio', $sections) ?: array();
@@ -272,8 +370,31 @@ class MetadataController extends Controller {
             $this->addValT('Bit rate', $this->language->t('%s kbps', array(floor($v/1000))), $return);
         }
 
+        if ($v = $this->getVal('author', $quicktime)) {
+            $this->addValT('Author', $v, $return);
+        }
+
+        if ($v = $this->getVal('copyright', $quicktime)) {
+            $this->addValT('Copyright', $v, $return);
+        }
+
+        if ($v = $this->getVal('make', $quicktime)) {
+            $this->addValT('Camera used', $v, $return);
+        }
+
+        if ($v = $this->getVal('model', $quicktime)) {
+            $this->addValT('Camera used', $v, $return, null, ' ');
+        }
+
+        if ($v = $this->getVal('com.android.version', $quicktime)) {
+            $this->addValT('Android version', $v, $return);
+        }
+
         if ($v = $this->getVal('codec', $video)) {
             $this->addValT('Video codec', $v, $return);
+
+        } else if ($v = $this->getVal('fourcc', $video)) {
+            $this->addValT('Video codec', $this->formatFourCc($v), $return);
         }
 
         if ($v = $this->getVal('bits_per_sample', $video)) {
@@ -305,7 +426,7 @@ class MetadataController extends Controller {
         }
 
         if ($v = $this->getVal('date', $vorbis) ?: $this->getVal('creationdate', $riff) ?: $this->getVal('creation_date', $quicktime) ?: $this->getVal('year', $vorbis, $id3v2, $id3v1)) {
-            $isYear = is_array($v) && (count($v) == 1) && (strlen($v[0]) == 4);
+            $isYear = is_array($v) && (count($v) === 1) && (strlen($v[0]) === 4);
             $this->addValT($isYear ? 'Year' : 'Date', $v, $return);
         }
 
@@ -327,6 +448,16 @@ class MetadataController extends Controller {
 
         if ($v = $this->getVal('software', $riff) ?: $this->getVal('encoding_tool', $quicktime) ?: $this->getVal('encoder', $matroska, $audio)) {
             $this->addValT('Encoding tool', $v, $return);
+        }
+
+        if ($v = $this->getVal('gps_latitude', $quicktime)) {
+            $lat = $v[0];
+            $this->addValT('GPS coordinates', $this->formatGpsDegree($lat, 'N', 'S'), $return);
+        }
+
+        if ($v = $this->getVal('gps_longitude', $quicktime)) {
+            $lon = $v[0];
+            $this->addValT('GPS coordinates', $this->formatGpsDegree($lon, 'E', 'W'), $return, null, '&emsp;');
         }
 
         return $return;
@@ -357,7 +488,11 @@ class MetadataController extends Controller {
             $this->addValT('Tags', $v, $return);
         }
 
-        if ($v = $this->getVal('UserComment', $comp)) {
+        if ($v = $this->getVal('keywords', $xmp)) {
+            $this->addValT('Keywords', $v, $return);
+        }
+
+        if (($v = $this->getVal('Comments', $ifd0)) || ($v = $this->getVal('UserComment', $comp))) {
             $this->addValT('Comment', $v, $return);
         }
 
@@ -388,12 +523,16 @@ class MetadataController extends Controller {
             $this->addValT('Artist', $v, $return);
         }
 
+        if ($v = $this->getVal('Copyright', $ifd0)) {
+            $this->addValT('Copyright', $v, $return);
+        }
+
         if ($v = $this->getVal('Make', $ifd0)) {
             $this->addValT('Camera used', $v, $return);
         }
 
         if ($v = $this->getVal('Model', $ifd0)) {
-            $this->addValT('Camera used', $v, $return);
+            $this->addValT('Camera used', $v, $return, null, ' ');
         }
 
         if ($v = $this->getVal('Software', $ifd0)) {
@@ -425,15 +564,15 @@ class MetadataController extends Controller {
         }
 
         if ($v = $this->getVal('FocalLength', $exif)) {
-            $this->addValT('Focal length', $this->language->t('%g mm', array($this->evalRational($v))), $return);
+            $this->addValT('Focal length', $this->language->t('%g mm', array($this->formatRational($v))), $return);
         }
 
         if ($v = $this->getVal('FocalLengthIn35mmFilm', $exif)) {
-            $this->addValT('Focal length', $this->language->t('(35 mm equivalent: %g mm)', array($v)), $return);
+            $this->addValT('Focal length', $this->language->t('(35 mm equivalent: %g mm)', array($v)), $return, null, ' ');
         }
 
         if ($v = $this->getVal('MaxApertureValue', $exif)) {
-            $this->addValT('Max aperture', $this->evalRational($v), $return);
+            $this->addValT('Max aperture', $this->apexToF($this->evalRational($v)), $return);
         }
 
         if ($v = $this->getVal('MeteringMode', $exif)) {
@@ -446,17 +585,26 @@ class MetadataController extends Controller {
 
         if ($v = $this->getVal('GPSLatitude', $gps)) {
             $ref = $this->getVal('GPSLatitudeRef', $gps);
-            $this->addValT('GPS coordinates', $ref . ' ' . $this->formatGpsCoord($v), $return);
-            $lat = $this->gpsToDecDegree($v, $ref == 'N');
+            $this->addValT('GPS coordinates', $this->formatGpsCoord($v, $ref), $return);
+            $lat = $this->gpsToDecDegree($v, $ref === 'N');
         }
 
         if ($v = $this->getVal('GPSLongitude', $gps)) {
             $ref = $this->getVal('GPSLongitudeRef', $gps);
-            $this->addValT('GPS coordinates', $ref . ' ' . $this->formatGpsCoord($v), $return, null, '&emsp;');
-            $lon = $this->gpsToDecDegree($v, $ref == 'E');
+            $this->addValT('GPS coordinates', $this->formatGpsCoord($v, $ref), $return, null, '&emsp;');
+            $lon = $this->gpsToDecDegree($v, $ref === 'E');
+        }
+
+        if ($v = $this->getVal('GPSAltitude', $gps)) {
+            $ref = $this->getVal('GPSAltitudeRef', $gps);
+            $this->addValT('GPS altitude', $this->formatGpsAlt($v, $ref), $return);
         }
 
         return $return;
+    }
+
+    protected function apexToF($val) {
+        return 'f/' . sprintf('%01.1f', round(pow(2, $val / 2), 1));
     }
 
     protected function formatExposureProgram($code) {
@@ -482,32 +630,58 @@ class MetadataController extends Controller {
         } else {
             $return = $this->language->t(($mode & 0x01) ? 'Flash' : 'No flash');
 
-            if (($compuls = ($mode & 0x18)) != 0) {
-                $return .= ', ' . $this->language->t(($compuls == 0x18) ? 'auto' : 'compulsory');
+            if (($compuls = ($mode & 0x18)) !== 0) {
+                $return .= ', ' . $this->language->t(($compuls === 0x18) ? 'auto' : 'compulsory');
             }
 
             if ($mode & 0x40) {
                 $return .= ', ' . $this->language->t('red-eye');
             }
 
-            if (($strobe = ($mode & 0x06)) != 0) {
-                $return .= ', ' . $this->language->t(($strobe == 0x06) ? 'strobe return' : (($strobe == 0x04) ? 'no strobe return' : ''));
+            if (($strobe = ($mode & 0x06)) !== 0) {
+                $return .= ', ' . $this->language->t(($strobe === 0x06) ? 'strobe return' : (($strobe === 0x04) ? 'no strobe return' : ''));
             }
 
             return $return;
         }
     }
 
-    protected function formatGpsCoord($coord) {
-        $return = $this->evalRational($coord[0]) . '°';
+    protected function formatFourCc($code) {
+        return array_key_exists($code, MetadataController::FOUR_CC) ? MetadataController::FOUR_CC[$code] . ' (' . $code .')' : $code;
+    }
 
-        if (($coord[1] != '0/1') || ($coord[2] != '0/1')) {
+    protected function formatGpsCoord($coord, $ref) {
+        $return = $ref . ' ' . $this->evalRational($coord[0]) . '°';
+
+        if (($coord[1] !== '0/1') || ($coord[2] !== '0/1')) {
             $return .= ' ' . $this->evalRational($coord[1]) . '\'';
         }
 
-        if ($coord[2] != '0/1') {
+        if ($coord[2] !== '0/1') {
             $return .= ' ' . round($this->evalRational($coord[2]), 2) . '"';
         }
+
+        return $return;
+    }
+
+    protected function formatGpsAlt($coord, $ref) {
+        return (($ref === 1) ? '-' : '') . round($this->evalRational($coord), 1) . ' m';
+    }
+
+    protected function formatGpsDegree($deg, $posRef, $negRef) {
+        $return = ($deg >= 0) ? $posRef : $negRef;
+        $deg = abs($deg);
+
+        $v = floor($deg);
+        $return .= ' ' . $v . '°';
+
+        $deg = ($deg - $v) * 60;
+        $v = floor($deg);
+        $return .= ' ' . $v . '\'';
+
+        $deg = ($deg - $v) * 60;
+        $v = round($deg, 2);
+        $return .= ' ' . $v . '"';
 
         return $return;
     }
@@ -519,13 +693,13 @@ class MetadataController extends Controller {
     }
 
     protected function formatSeconds($val) {
-        return sprintf("%02d:%02d:%02d", floor($val/3600), ($val/60)%60, $val%60);
+        return sprintf("%02d:%02d:%02d", floor($val / 3600), floor(fmod(($val / 60), 60)), round(fmod($val, 60)));
     }
 
     protected function formatRational($val, $fracIfSmall = false) {
         if (preg_match('/([\-]?)(\d+)([\/])(\d+)/', $val, $matches) !== false) {
             if ($fracIfSmall && ($matches[2] < $matches[4])) {
-                if ($matches[2] != 1) {
+                if ($matches[2] !== 1) {
                     $val = $matches[1] . 1 . '/' . round($matches[4] / $matches[2]);
                 }
 
@@ -547,7 +721,7 @@ class MetadataController extends Controller {
 
     protected function evalFraction($sig, $num, $den) {
         $val = $num / $den;
-        if ($sig == '-') {
+        if ($sig === '-') {
             $val = -$val;
         }
 
@@ -572,11 +746,11 @@ class MetadataController extends Controller {
             return $array[$key];
         }
 
-        if (($array2 != null) && array_key_exists($key, $array2)) {
+        if (($array2 !== null) && array_key_exists($key, $array2)) {
             return $array2[$key];
         }
 
-        if (($array3 != null) && array_key_exists($key, $array3)) {
+        if (($array3 !== null) && array_key_exists($key, $array3)) {
             return $array3[$key];
         }
 
@@ -594,22 +768,35 @@ class MetadataController extends Controller {
     }
 
     protected function addVal($key, $val, &$array, $join = null, $sep = null) {
-        if (is_null($join)) {
-            $join = '<br>';
-        }
-
-        if (is_null($sep)) {
-            $sep = ' ';
-        }
-
         if (is_array($val)) {
-            $val = join($join, $val);
+            if (isset($join)) {
+                $val = join($join, $val);
+
+            } else if (count($val) <= 1) {
+                $val = array_pop($val);
+            }
         }
 
         if (array_key_exists($key, $array)) {
             $prev = $array[$key];
-            if (substr($val, 0, strlen($prev)) != $prev) {
-                $val = $prev . $sep . $val;
+
+            if (isset($sep)) {
+                if (substr($val, 0, strlen($prev)) !== $prev) {
+                    $val = $prev . $sep . $val;
+                }
+
+            } else {
+                if (!is_array($prev)) {
+                    $prev = array($prev);
+                }
+
+                if (is_array($val)) {
+                    $val = array_merge($prev, $val);
+
+                } else {
+                    $prev[] = $val;
+                    $val = $prev;
+                }
             }
         }
 

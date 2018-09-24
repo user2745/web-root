@@ -3,24 +3,27 @@
  *
  * (c) Copyright Ascensio System Limited 2010-2018
  *
- * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU
- * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html).
- * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that
- * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ * This program is a free software product.
+ * You can redistribute it and/or modify it under the terms of the GNU Affero General Public License
+ * (AGPL) version 3 as published by the Free Software Foundation.
+ * In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended to the effect
+ * that Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
  *
- * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
- * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ * This program is distributed WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * For details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
  *
- * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ * You can contact Ascensio System SIA at 17-2 Elijas street, Riga, Latvia, EU, LV-1021.
  *
- * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display
- * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ * The interactive user interfaces in modified source and object code versions of the Program
+ * must display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
  *
- * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains
- * relevant author attributions when distributing the software. If the display of the logo in its graphic
- * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE"
- * in every copy of the program you distribute.
- * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ * Pursuant to Section 7(b) of the License you must retain the original Product logo when distributing the program.
+ * Pursuant to Section 7(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
+ * All the Product's GUI elements, including illustrations and icon sets, as well as technical
+ * writing content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0 International.
+ * See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
  *
  */
 
@@ -29,7 +32,7 @@ namespace OCA\Onlyoffice;
 use OCA\Onlyoffice\AppConfig;
 
 /**
- * Hash generator
+ * Token generator
  *
  * @package OCA\Onlyoffice
  */
@@ -50,63 +53,34 @@ class Crypt {
     }
 
     /**
-     * Generate base64 hash for the object
+     * Generate token for the object
      *
-     * @param array $object - object to signature hash
+     * @param array $object - object to signature
      *
      * @return string
      */
     public function GetHash($object) {
-        $primaryKey = json_encode($object);
-        $hash = $this->SignatureCreate($primaryKey);
-        return $hash;
+        return \Firebase\JWT\JWT::encode($object, $this->skey);
     }
 
     /**
-     * Create an object from the base64 hash
+     * Create an object from the token
      *
-     * @param string $hash - base64 hash
+     * @param string $token - token
      *
      * @return array
      */
-    public function ReadHash($hash) {
+    public function ReadHash($token) {
         $result = NULL;
         $error = NULL;
-        if ($hash === NULL) {
-            return [$result, "hash is empty"];
+        if ($token === NULL) {
+            return [$result, "token is empty"];
         }
         try {
-            $payload = base64_decode($hash);
-            $payloadParts = explode("?", $payload, 2);
-
-            if (count($payloadParts) === 2) {
-                $encode = base64_encode( hash( "sha256", ($payloadParts[1] . $this->skey), true ) );
-
-                if ($payloadParts[0] === $encode) {
-                    $result = json_decode($payloadParts[1]);
-                } else {
-                    $error = "hash not equal";
-                }
-            } else {
-                $error = "incorrect hash";
-            }
-        } catch (\Exception $e) {
+            $result = \Firebase\JWT\JWT::decode($token, $this->skey, array("HS256"));
+        } catch (\UnexpectedValueException $e) {
             $error = $e->getMessage();
         }
         return [$result, $error];
-    }
-
-    /**
-     * Generate base64 hash for the object
-     *
-     * @param string $primary_key - string to the signature hash
-     *
-     * @return string
-     */
-    private function SignatureCreate($primary_key) {
-        $payload = base64_encode( hash( "sha256", ($primary_key . $this->skey), true ) ) . "?" . $primary_key;
-        $base64Str = base64_encode($payload);
-
-        return $base64Str;
     }
 }

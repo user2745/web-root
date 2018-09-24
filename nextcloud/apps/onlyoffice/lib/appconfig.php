@@ -3,24 +3,27 @@
  *
  * (c) Copyright Ascensio System Limited 2010-2018
  *
- * This program is freeware. You can redistribute it and/or modify it under the terms of the GNU
- * General Public License (GPL) version 3 as published by the Free Software Foundation (https://www.gnu.org/copyleft/gpl.html).
- * In accordance with Section 7(a) of the GNU GPL its Section 15 shall be amended to the effect that
- * Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
+ * This program is a free software product.
+ * You can redistribute it and/or modify it under the terms of the GNU Affero General Public License
+ * (AGPL) version 3 as published by the Free Software Foundation.
+ * In accordance with Section 7(a) of the GNU AGPL its Section 15 shall be amended to the effect
+ * that Ascensio System SIA expressly excludes the warranty of non-infringement of any third-party rights.
  *
- * THIS PROGRAM IS DISTRIBUTED WITHOUT ANY WARRANTY; WITHOUT EVEN THE IMPLIED WARRANTY OF MERCHANTABILITY OR
- * FITNESS FOR A PARTICULAR PURPOSE. For more details, see GNU GPL at https://www.gnu.org/copyleft/gpl.html
+ * This program is distributed WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * For details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
  *
- * You can contact Ascensio System SIA by email at sales@onlyoffice.com
+ * You can contact Ascensio System SIA at 17-2 Elijas street, Riga, Latvia, EU, LV-1021.
  *
- * The interactive user interfaces in modified source and object code versions of ONLYOFFICE must display
- * Appropriate Legal Notices, as required under Section 5 of the GNU GPL version 3.
+ * The interactive user interfaces in modified source and object code versions of the Program
+ * must display Appropriate Legal Notices, as required under Section 5 of the GNU AGPL version 3.
  *
- * Pursuant to Section 7 § 3(b) of the GNU GPL you must retain the original ONLYOFFICE logo which contains
- * relevant author attributions when distributing the software. If the display of the logo in its graphic
- * form is not reasonably feasible for technical reasons, you must include the words "Powered by ONLYOFFICE"
- * in every copy of the program you distribute.
- * Pursuant to Section 7 § 3(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ * Pursuant to Section 7(b) of the License you must retain the original Product logo when distributing the program.
+ * Pursuant to Section 7(e) we decline to grant you any rights under trademark law for use of our trademarks.
+ *
+ * All the Product's GUI elements, including illustrations and icon sets, as well as technical
+ * writing content are licensed under the terms of the Creative Commons Attribution-ShareAlike 4.0 International.
+ * See the License terms at http://creativecommons.org/licenses/by-sa/4.0/legalcode
  *
  */
 
@@ -65,14 +68,14 @@ class AppConfig {
     private $_documentserver = "DocumentServerUrl";
 
     /**
-     * The config key for the document server address available from ownCloud
+     * The config key for the document server address available from Nextcloud
      *
      * @var string
      */
     private $_documentserverInternal = "DocumentServerInternalUrl";
 
     /**
-     * The config key for the ownCloud address available from document server
+     * The config key for the Nextcloud address available from document server
      *
      * @var string
      */
@@ -91,6 +94,13 @@ class AppConfig {
      * @var string
      */
     private $_defFormats = "defFormats";
+
+    /**
+     * The config key for the editable formats
+     *
+     * @var string
+     */
+    private $_editFormats = "editFormats";
 
     /**
      * The config key for the setting same tab
@@ -175,12 +185,16 @@ class AppConfig {
 
     /**
      * Get value from the system configuration
-     * 
+     *
      * @param string $key - key configuration
+     * @param string $system - get from root or from app section
      *
      * @return string
      */
-    public function GetSystemValue($key) {
+    public function GetSystemValue($key, $system = false) {
+        if ($system) {
+            return $this->config->getSystemValue($key);
+        }
         if (!empty($this->config->getSystemValue($this->appName))
             && array_key_exists($key, $this->config->getSystemValue($this->appName))) {
             return $this->config->getSystemValue($this->appName)[$key];
@@ -227,7 +241,7 @@ class AppConfig {
     }
 
     /**
-     * Save the document service address available from ownCloud to the application configuration
+     * Save the document service address available from Nextcloud to the application configuration
      *
      * @param string $documentServer - document service address
      */
@@ -246,7 +260,7 @@ class AppConfig {
     }
 
     /**
-     * Get the document service address available from ownCloud from the application configuration
+     * Get the document service address available from Nextcloud from the application configuration
      *
      * @return string
      */
@@ -262,7 +276,7 @@ class AppConfig {
     }
 
     /**
-     * Save the ownCloud address available from document server to the application configuration
+     * Save the Nextcloud address available from document server to the application configuration
      *
      * @param string $documentServer - document service address
      */
@@ -281,7 +295,7 @@ class AppConfig {
     }
 
     /**
-     * Get the ownCloud address available from document server from the application configuration
+     * Get the Nextcloud address available from document server from the application configuration
      *
      * @return string
      */
@@ -343,7 +357,7 @@ class AppConfig {
     }
 
     /**
-     * Save the formats array with default action
+     * Save an array of formats with default action
      *
      * @param array $formats - formats with status
      */
@@ -355,12 +369,37 @@ class AppConfig {
     }
 
     /**
-     * Get the formats array with default action
+     * Get an array of formats with default action
      *
      * @return array
      */
-    public function GetDefaultFormats() {
+    private function GetDefaultFormats() {
         $value = $this->config->getAppValue($this->appName, $this->_defFormats, "");
+        if (empty($value)) {
+            return array();
+        }
+        return json_decode($value, true);
+    }
+
+    /**
+     * Save an array of formats that is opened for editing
+     *
+     * @param array $formats - formats with status
+     */
+    public function SetEditableFormats($formats) {
+        $value = json_encode($formats);
+        $this->logger->info("Set editing formats: " . $value, array("app" => $this->appName));
+
+        $this->config->setAppValue($this->appName, $this->_editFormats, $value);
+    }
+
+    /**
+     * Get an array of formats opening for editing
+     *
+     * @return array
+     */
+    private function GetEditableFormats() {
+        $value = $this->config->getAppValue($this->appName, $this->_editFormats, "");
         if (empty($value)) {
             return array();
         }
@@ -394,7 +433,7 @@ class AppConfig {
      */
     public function TurnOffVerification() {
         $turnOff = $this->getSystemValue($this->_verification);
-        return $turnOff === TRUE;
+        return $turnOff === true;
     }
 
     /**
@@ -428,40 +467,69 @@ class AppConfig {
         return empty($this->config->getAppValue($this->appName, $this->_settingsError, ""));
     }
 
+    /**
+     * Get supported formats
+     *
+     * @return array
+     *
+     * @NoAdminRequired
+     */
+    public function FormatsSetting() {
+        $result = $this->formats;
+
+        $defFormats = $this->GetDefaultFormats();
+        foreach ($defFormats as $format => $setting) {
+            if (array_key_exists($format, $result)) {
+                $result[$format]["def"] = ($setting === true || $setting === "true");
+            }
+        }
+
+        $editFormats = $this->GetEditableFormats();
+        foreach ($editFormats as $format => $setting) {
+            if (array_key_exists($format, $result)) {
+                $result[$format]["edit"] = ($setting === true || $setting === "true");
+            }
+        }
+
+        return $result;
+    }
+
 
     /**
      * Additional data about formats
      *
      * @var array
      */
-    public $formats = [
-            "docx" => [ "mime" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "type" => "text", "edit" => true, "def" => true ],
-            "xlsx" => [ "mime" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "type" => "spreadsheet", "edit" => true, "def" => true ],
-            "pptx" => [ "mime" => "application/vnd.openxmlformats-officedocument.presentationml.presentation", "type" => "presentation", "edit" => true, "def" => true ],
-            "ppsx" => [ "mime" => "application/vnd.openxmlformats-officedocument.presentationml.slideshow", "type" => "presentation", "edit" => true, "def" => true ],
-            "txt" => [ "mime" => "text/plain", "type" => "text", "edit" => true ],
-            "csv" => [ "mime" => "text/csv", "type" => "spreadsheet", "edit" => true ],
-            "docm" => [ "mime" => "application/vnd.ms-word.document.macroEnabled.12", "type" => "text", "conv" => true ],
-            "xlsm" => [ "mime" => "application/vnd.ms-excel.sheet.macroEnabled.12", "type" => "spreadsheet", "conv" => true ],
-            "xltx" => [ "mime" => "application/vnd.openxmlformats-officedocument.spreadsheetml.template", "type" => "spreadsheet", "conv" => true ],
-            "xltm" => [ "mime" => "application/vnd.ms-excel.template.macroEnabled.12", "type" => "spreadsheet", "conv" => true ],
-            "pptm" => [ "mime" => "application/vnd.ms-powerpoint.presentation.macroEnabled.12", "type" => "presentation", "conv" => true ],
-            "ppsm" => [ "mime" => "application/vnd.ms-powerpoint.slideshow.macroEnabled.12", "type" => "presentation", "conv" => true ],
-            "potx" => [ "mime" => "application/vnd.openxmlformats-officedocument.presentationml.template", "type" => "presentation", "conv" => true ],
-            "potm" => [ "mime" => "application/vnd.ms-powerpoint.template.macroEnabled.12", "type" => "presentation", "conv" => true ],
-            "odt" => [ "mime" => "application/vnd.oasis.opendocument.text", "type" => "text", "conv" => true ],
-            "ods" => [ "mime" => "application/vnd.oasis.opendocument.spreadsheet", "type" => "spreadsheet", "conv" => true ],
-            "odp" => [ "mime" => "application/vnd.oasis.opendocument.presentation", "type" => "presentation", "conv" => true ],
+    private $formats = [
+        "csv" => [ "mime" => "text/csv", "type" => "spreadsheet", "edit" => true, "editable" => true ],
             "doc" => [ "mime" => "application/msword", "type" => "text", "conv" => true ],
-            "xls" => [ "mime" => "application/vnd.ms-excel", "type" => "spreadsheet", "conv" => true ],
-            "ppt" => [ "mime" => "application/vnd.ms-powerpoint", "type" => "presentation", "conv" => true ],
+            "docm" => [ "mime" => "application/vnd.ms-word.document.macroEnabled.12", "type" => "text", "conv" => true ],
+            "docx" => [ "mime" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "type" => "text", "edit" => true, "def" => true ],
+            "dot" => [ "type" => "text", "conv" => true ],
+            "dotx" => [ "mime" => "application/vnd.openxmlformats-officedocument.wordprocessingml.template", "type" => "text", "conv" => true ],
             "epub" => [ "mime" => "application/epub+zip", "type" => "text", "conv" => true ],
-            "rtf" => [ "mime" => "text/rtf", "type" => "text", "type" => "text", "conv" => true ],
-            "mht" => [ "mime" => "message/rfc822", "conv" => true ],
+            "htm" => [ "type" => "text", "conv" => true ],
             "html" => [ "mime" => "text/html", "type" => "text", "conv" => true ],
-            "htm" => [ "mime" => "text/html", "type" => "text", "conv" => true ],
-            "xps" => [ "mime" => "application/vnd.ms-xpsdocument", "type" => "text" ],
+        "odp" => [ "mime" => "application/vnd.oasis.opendocument.presentation", "type" => "presentation", "conv" => true, "editable" => true ],
+        "ods" => [ "mime" => "application/vnd.oasis.opendocument.spreadsheet", "type" => "spreadsheet", "conv" => true, "editable" => true ],
+        "odt" => [ "mime" => "application/vnd.oasis.opendocument.text", "type" => "text", "conv" => true, "editable" => true ],
             "pdf" => [ "mime" => "application/pdf", "type" => "text" ],
-            "djvu" => [ "mime" => "image/vnd.djvu", "type" => "text" ]
+            "pot" => [ "type" => "presentation", "conv" => true ],
+            "potm" => [ "mime" => "application/vnd.ms-powerpoint.template.macroEnabled.12", "type" => "presentation", "conv" => true ],
+            "potx" => [ "mime" => "application/vnd.openxmlformats-officedocument.presentationml.template", "type" => "presentation", "conv" => true ],
+            "pps" => [ "type" => "presentation", "conv" => true ],
+            "ppsm" => [ "mime" => "application/vnd.ms-powerpoint.slideshow.macroEnabled.12", "type" => "presentation", "conv" => true ],
+            "ppsx" => [ "mime" => "application/vnd.openxmlformats-officedocument.presentationml.slideshow", "type" => "presentation", "conv" => true ],
+            "ppt" => [ "mime" => "application/vnd.ms-powerpoint", "type" => "presentation", "conv" => true ],
+            "pptm" => [ "mime" => "application/vnd.ms-powerpoint.presentation.macroEnabled.12", "type" => "presentation", "conv" => true ],
+            "pptx" => [ "mime" => "application/vnd.openxmlformats-officedocument.presentationml.presentation", "type" => "presentation", "edit" => true, "def" => true ],
+        "rtf" => [ "mime" => "text/rtf", "type" => "text", "conv" => true, "editable" => true ],
+        "txt" => [ "mime" => "text/plain", "type" => "text", "edit" => true, "editable" => true ],
+            "xls" => [ "mime" => "application/vnd.ms-excel", "type" => "spreadsheet", "conv" => true ],
+            "xlsm" => [ "mime" => "application/vnd.ms-excel.sheet.macroEnabled.12", "type" => "spreadsheet", "conv" => true ],
+            "xlsx" => [ "mime" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "type" => "spreadsheet", "edit" => true, "def" => true ],
+            "xlt" => [ "type" => "spreadsheet", "conv" => true ],
+            "xltm" => [ "mime" => "application/vnd.ms-excel.template.macroEnabled.12", "type" => "spreadsheet", "conv" => true ],
+            "xltx" => [ "mime" => "application/vnd.openxmlformats-officedocument.spreadsheetml.template", "type" => "spreadsheet", "conv" => true ]
         ];
 }
