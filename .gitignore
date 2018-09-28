@@ -1,3 +1,7 @@
 #Ignore These Files
 ./nextcloud/*
+<<<<<<< HEAD
 ./.vscode/*
+=======
+./.vscode/*
+>>>>>>> remote/live
