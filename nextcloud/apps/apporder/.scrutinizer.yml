@@ -1,0 +1,19 @@
+filter:
+    excluded_paths:
+        - 'templates/*'
+        - 'css/*'
+        - 'tests/*'
+imports:
+    - php
+    - javascript
+
+tools:
+    external_code_coverage:
+        timeout: 3600
+
+checks:
+    php:
+        # this is not working properly with core exceptions
+        catch_class_exists: false
+        line_length:
+            max_length: '80'

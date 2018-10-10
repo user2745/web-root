@@ -1,0 +1,289 @@
+/**
+ * Copyright (c) 2013, Jan-Christoph Borchardt http://jancborchardt.net
+ * This file is licensed under the Affero General Public License version 3 or later.
+ * See the COPYING file.
+ */
+
+#app {
+	width: 100%;
+}
+#app-content {
+	height: 100%;
+}
+
+#app-navigation > ul > li.has-error a{
+    color:#f00;
+}
+.app-content-list-button {
+	display: block;
+	margin: 10px auto;
+	padding: 10px;
+}
+
+#app-navigation li .nav-entry {
+	display: block;
+	width: 100%;
+	line-height: 44px;
+	min-height: 44px;
+	padding: 0 12px;
+	overflow: hidden;
+	box-sizing: border-box;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	color: #000;
+	opacity: .57;
+}
+
+#app-navigation li .nav-entry .emptycontent-search {
+	white-space: normal;
+}
+@media (max-height: 600px) {
+	#app-navigation li .nav-entry .emptycontent-search {
+		margin-top: inherit;
+	}
+}
+
+#app-navigation li:hover .nav-entry,
+#app-navigation li:focus .nav-entry {
+	opacity: 1;
+}
+
+
+/* new button from Nextcloud 14 -- can be removed if min-version is at least 14 */
+#app-navigation .app-navigation-new {
+	display: block;
+	padding: 10px;
+}
+#app-navigation .app-navigation-new button {
+	display: inline-block;
+	width: 100%;
+	padding: 10px;
+	padding-left: 34px;
+	background-position: 10px center;
+	text-align: left;
+	margin: 0;
+}
+
+
+/* only display the delete button when the note is active */
+#app-navigation .app-navigation-entry-utils-menu-button {
+    display: none;
+}
+
+#app-navigation .app-navigation-entry-utils-menu-button.button-star.starred,
+#app-navigation .active .app-navigation-entry-utils-menu-button.button-delete,
+#app-navigation .active .app-navigation-entry-utils-menu-button.button-star,
+#app-navigation li:hover .app-navigation-entry-utils-menu-button.button-delete,
+#app-navigation li:hover .app-navigation-entry-utils-menu-button.button-star {
+    display: inline-block;
+}
+#app-navigation .app-navigation-entry-utils .app-navigation-entry-utils-menu-button .icon-delete {
+    opacity: .3;
+}
+#app-navigation .app-navigation-entry-utils-menu-button .icon-starred {
+    display: inline-block;
+    opacity: 1 !important;
+}
+
+#app-settings-content > div + div {
+    padding-top: 2ex;
+}
+
+.note-search span {
+    background-position: 0 center;
+    background-origin: content-box;
+}
+
+.note-search input {
+    width: 100%;
+    padding-left: 20px;
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+}
+
+.note-search input:active,
+.note-search input:focus,
+.note-search input:hover {
+    border-bottom: 1px solid grey;
+}
+
+.tooltip {
+    text-shadow: none;
+    text-transform: none;
+}
+
+#app-content-container {
+    height: 100%;
+}
+
+/* special styling to make editor subtle and fit the window */
+.CodeMirror {
+    position: relative;
+    min-height: 100%;
+    max-width: 47em;
+    margin: 0 0 -50px;
+    padding: 30px 0 90px;
+    border: none;
+    font-size: 16px;
+    line-height: 1.5em;
+}
+
+.CodeMirror-scroll {
+    overflow-x: auto !important;
+}
+
+/* enable clickthrough for links */
+.CodeMirror-cursor {
+    pointer-events: none;
+}
+
+#app-content .note-meta {
+    position: relative;
+    padding: 0 45px 30px 45px;
+    margin: -10px 0 0;
+    -ms-user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    z-index: 5;
+}
+#app-content .note-meta > * {
+    opacity: .4;
+}
+
+#app-content .note-meta > .note-error {
+    opacity: 1;
+    background-color: #e00;
+    color: #fff;
+    border-radius: 0.5ex;
+    padding: 0.5ex 1ex;
+}
+#app-content .note-meta-right {
+    float: right;
+}
+
+#app-content .note-meta > .saving {
+    display: inline-block;
+    vertical-align: middle;
+    width: 2.5ex;
+    height: 2.5ex;
+    background: url('../img/loading.gif') no-repeat;
+    background-size: contain;
+    opacity: 1;
+    margin: 0 1ex;
+}
+.btn-fullscreen {
+    padding: 15px;
+}
+
+
+/* markdown styling */
+
+.CodeMirror .CodeMirror-code {
+	width: 100%;
+}
+.CodeMirror .CodeMirror-code .cm-header {
+    /* break from core in using semibold, otherwise not emphasized in texts */
+	font-weight: 600;
+}
+.CodeMirror .CodeMirror-code .cm-header-1 {
+    font-size: 28px;
+    margin: 50px 0 20px;
+    line-height: 120%;
+}
+.CodeMirror .CodeMirror-code .cm-header-2 {
+	font-size: 20px;
+    margin-top: 12px;
+    line-height: 150%;
+}
+.CodeMirror .CodeMirror-code .cm-header-3,
+.CodeMirror .CodeMirror-code .cm-header-4,
+.CodeMirror .CodeMirror-code .cm-header-5,
+.CodeMirror .CodeMirror-code .cm-header-6 {
+	font-size: 16px;
+    margin: 0;
+    font-weight: 300;
+}
+.CodeMirror .CodeMirror-code .cm-header-3 {
+    font-weight: 600;
+}
+
+.CodeMirror .CodeMirror-code .cm-hr {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.CodeMirror .CodeMirror-code .cm-hr:before {
+    position: absolute;
+    content: "";
+    top: 50%;
+    width: 100%;
+    z-index: -1;
+    border-top: 5px solid rgba(120, 120, 120, 0.2);
+}
+
+
+/* hanging punctuation */
+.CodeMirror .CodeMirror-code .CodeMirror-line {
+    padding-left: 45px;
+}
+
+.CodeMirror .CodeMirror-code .cm-formatting-header:not(:only-child),
+.CodeMirror .CodeMirror-code .cm-formatting-list,
+.CodeMirror .CodeMirror-code .cm-formatting-quote {
+    position: absolute;
+    display: inline-block;
+    width: 90px;
+    margin-top: 0;
+    margin-left: -90px;
+    text-align: right;
+    white-space: pre;
+    color: rgba(120, 120, 120, 0.5);
+}
+
+.CodeMirror .CodeMirror-code .cm-formatting-header:not(:first-child) {
+    width: auto;
+    margin-left: 0px; 
+}
+
+/* distraction free styles */
+:-webkit-full-screen {
+	width: 100%;
+	background-color: white;
+}
+:-moz-full-screen {
+	width: 100%;
+	background-color: white;
+}
+:-ms-fullscreen {
+	width: 100%;
+	background-color: white;
+}
+:fullscreen {
+	width: 100%;
+	background-color: white;
+}
+
+:-webkit-full-screen #app-content-container {
+	margin: 0 auto;
+}
+:-moz-full-screen #app-content-container {
+	margin: 0 auto;
+}
+:-ms-fullscreen #app-content-container {
+	margin: 0 auto;
+}
+:fullscreen #app-content-container {
+	margin: 0 auto;
+}
+
+
+/* larger screen sizes */
+@media only screen and (min-width: 769px) {
+    /* use slightly more space on the left so all # signs of h3–h6 show */
+    .CodeMirror .CodeMirror-code .CodeMirror-line,
+    #app-content .note-meta {
+        padding-left: 90px;
+    }
+}

@@ -1,8 +1,11 @@
 // Main Javascript Page
 
-// window.onload = function () { document.body.classList.remove('is-preload'); }
+window.onload = function () { document.body.classList.remove('is-preload'); }
 window.ontouchmove = function () { return false; }
 window.onorientationchange = function () { document.body.scrollTop = 0; }
+
+
+function PassLock() {
 var password = window.prompt("Please enter the password");
 switch (password) {
     case "password":
@@ -12,7 +15,7 @@ switch (password) {
         window.close();
         break;
     default:
-        window.alert("Wrong Password!").stop();
+        window.alert("Goodbye!").stop();
         break;
 }
-
+}

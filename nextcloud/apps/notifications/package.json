@@ -1,0 +1,33 @@
+{
+  "name": "notifications",
+  "description": "This app provides a backend and frontend for the notification API available in Nextcloud.",
+  "version": "2.2.0",
+  "author": "Joas Schilling <coding@schilljs.com>",
+  "license": "agpl",
+  "private": true,
+  "scripts": {
+    "dev": "webpack --config src/webpack.dev.js",
+    "watch": "webpack --progress --watch --config src/webpack.dev.js",
+    "build": "webpack --progress --hide-modules --config src/webpack.prod.js"
+  },
+  "dependencies": {
+    "axios": "^0.18.0",
+    "vue": "^2.5.17"
+  },
+  "browserslist": [
+    "last 2 versions",
+    "ie >= 11"
+  ],
+  "devDependencies": {
+    "@babel/core": "^7.1.0",
+    "@babel/preset-env": "^7.1.0",
+    "babel-loader": "^8.0.2",
+    "css-loader": "^0.28.11",
+    "file-loader": "^1.1.11",
+    "vue-loader": "^15.4.2",
+    "vue-template-compiler": "^2.5.17",
+    "webpack": "^4.19.1",
+    "webpack-cli": "^3.1.0",
+    "webpack-merge": "^4.1.4"
+  }
+}
