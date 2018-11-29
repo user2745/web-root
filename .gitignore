@@ -1,4 +1,5 @@
 #Ignore These Files
+/nextcloud/
 nextcloud/*
 .vscode/*
 /turtl/*
