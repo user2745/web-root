@@ -1,5 +1,9 @@
 #Ignore These Files
 /nextcloud/
 nextcloud/*
-.vscode/*
 /turtl/*
+
+
+#IDE & Text Editors
+.vscode/
+.idea/
