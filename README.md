@@ -1,8 +1,10 @@
-Welcome to distributable web server 
 
-This is a freely installable web server that can be installed on any computer.
+RpiWS v1.0.0
 
-This contains a website & self hosted web services
+
+Raspberry Pi web server built with PHP
+
+
 
 
 All software services are referenced at:
