@@ -1,13 +1,14 @@
 <!DOCTYPE HTML>
 <html>
 	<head>
-		<title>Bienvenue</title>
+		<title>Hello, World</title>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-		<link rel="stylesheet" href=".metadata/.assets/css/main.css" />
-		<noscript><link rel="stylesheet" href=".metadata/.assets/css/noscript.css" /></noscript>
+		<link rel="stylesheet" href=".resources/.source/css/main.css" />
+		<noscript><link rel="stylesheet" href=".resources/.source/css/noscript.css" /></noscript>
+		<link rel="icon" type="img/ico" href=".resources/.source/images/icon.ico">
 	</head>
-	<body class="is-preload">
+	<body>
 		<div id="wrapper">
 			<div id="bg"></div>
 			<div id="overlay"></div>
@@ -19,11 +20,11 @@
 						<p>Créer et Redéfinir</p>
 						<nav>
 							<ul>
-								<li><a href="/budget" class="icon fa-money-bill-wave"><span class="label">Budget</span></a></li>
-								<li><a href="#" class="icon fa-square"><span class="label">Budget</span></a></li>
+								<li><a href="" class="icon fa-money-bill-wave"><span class="label">Budget</span></a></li>
+								<li><a href="https://linkedin.com/in/kevin-kamto/" class="icon fa-square"><span class="label">LinkedIn</span></a></li>
 								<li><a href="/nextcloud" class="icon fa-cloud"><span class="label">Nextcloud</span></a></li>
 								<li><a href="https://github.com/user2745" class="icon fa-github"><span class="label">Github</span></a></li>
-								<li><a href="/boards" class="icon fa-square"><span class="label">Kanban</span></a></li>
+								<li><a href="" class="icon fa-square"><span class="label">Kanban</span></a></li>
 							</ul>
 						</nav>
 					</header>
@@ -32,13 +33,9 @@
 					<footer id="footer">
 						<span class="copyright"><i>Créé par kamto</i></span>
 					</footer>
-
+<script src=".resources/.assets/js/main.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
 			</div>
 		</div>
-		<script>
-			window.onload = function() { document.body.classList.remove('is-preload'); }
-			window.ontouchmove = function() { return false; }
-			window.onorientationchange = function() { document.body.scrollTop = 0; }
-		</script>
 	</body>
 </html>
