@@ -1,5 +1,5 @@
 
-RpiWS v1.0.0
+RpiWS pre-Alpha
 
 
 Raspberry Pi web server built with PHP
