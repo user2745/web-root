@@ -1,0 +1,22 @@
+{
+  "name": "web-root",
+  "version": "0.0.1",
+  "description": "simple website for Tresor LLC",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/user2745/web-root.git"
+  },
+  "author": "kamto",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/user2745/web-root/issues"
+  },
+  "homepage": "https://github.com/user2745/web-root#readme",
+  "dependencies": {
+    "express": "^4.16.4"
+  }
+}
